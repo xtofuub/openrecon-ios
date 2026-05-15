@@ -1,0 +1,48 @@
+{
+  "manifest_version": "0.2",
+  "name": "mitmproxy-mcp",
+  "version": "0.5.1",
+  "description": "Intercept, inspect, and replay HTTPS traffic with AI agents.",
+  "long_description": "MCP Server that wraps mitmproxy and exposes it as a tool to any MCP client, allows your AI agents to inspect traffic, filter traffic, intercept & modify traffic, request reply, set global headers, and start/stop mitmproxy as needed.",
+  "author": {
+    "name": "SnapSpecter",
+    "url": "https://github.com/snapspecter"
+  },
+  "homepage": "https://github.com/snapspecter/mitmproxy-mcp",
+  "support": "https://github.com/snapspecter/mitmproxy-mcp",
+  "server": {
+    "type": "python",
+    "entry_point": "mitmproxy_mcp.core.server:start",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "${__dirname}/mitmproxy_mcp.core.server:start"
+      ],
+      "env": {
+        "PYTHONPATH": "${__dirname}/server/lib"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "list_tools",
+      "description": "List all available tools"
+    }
+  ],
+  "tools_generated": true,
+  "keywords": [
+    "mitmproxy",
+    "proxy",
+    "http",
+    "debugging",
+    "api",
+    "https",
+    "reverse-engineer",
+    "traffic interception"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/snapspecter/mitmproxy-mcp"
+  }
+}
