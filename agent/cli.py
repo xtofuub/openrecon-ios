@@ -99,6 +99,48 @@ def correlate(run_id: str, runs_root: str) -> None:
 
 
 @main.command()
+@click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON instead of a table.")
+def runs(runs_root: str, as_json: bool) -> None:
+    """List all engagement runs with severity counts and phase."""
+    import json as _json
+
+    from .runs import list_runs
+
+    summaries = list_runs(Path(runs_root))
+    if as_json:
+        click.echo(_json.dumps([s.as_dict() for s in summaries], indent=2, default=str))
+        return
+    if not summaries:
+        click.echo(f"no runs under {runs_root}")
+        return
+    click.echo(f"{'run_id':<28}{'bundle':<30}{'phase':<10}{'flows':>7}{'findings':>10}")
+    click.echo("-" * 85)
+    for s in summaries:
+        bundle = (s.bundle_id or "-")[:28]
+        phase = (s.phase or "-")[:8]
+        click.echo(
+            f"{s.run_id[:26]:<28}{bundle:<30}{phase:<10}{s.flows:>7}{s.findings_total:>10}"
+        )
+
+
+@main.command()
+@click.argument("run_id")
+@click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
+@click.option("--out", default=None, type=click.Path(), help="Output path (default: runs/<id>.tar.gz).")
+def export(run_id: str, runs_root: str, out: str | None) -> None:
+    """Bundle a run directory into a shareable tar.gz archive."""
+    from .export import export_run
+
+    run_dir = Path(runs_root) / run_id
+    if not run_dir.exists():
+        click.echo(f"no run at {run_dir}", err=True)
+        sys.exit(2)
+    out_path = export_run(run_dir, Path(out) if out else None)
+    click.echo(str(out_path))
+
+
+@main.command()
 @click.argument("finding_id")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
 @click.option("--write", "write_report", is_flag=True, help="Write replay_<id>.md next to the finding.")
