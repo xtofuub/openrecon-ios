@@ -1,5 +1,8 @@
 # Python
 __pycache__/
+
+# git filter-branch / filter-repo workspace
+.git-rewrite/
 *.py[cod]
 *$py.class
 *.so
