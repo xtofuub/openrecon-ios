@@ -11,9 +11,9 @@ import pytest
 
 from mitm.client import MitmClient
 
-ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_HAR = ROOT / "tests" / "fixtures" / "recorded_ios.har"
-FIXTURE_SERVER = ROOT / "tests" / "fixtures" / "mitm_mcp_fixture_server.py"
+FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
+FIXTURE_HAR = FIXTURES / "recorded_ios.har"
+FIXTURE_SERVER = FIXTURES / "mitm_mcp_fixture_server.py"
 
 
 @pytest.mark.asyncio

@@ -11,7 +11,7 @@ import pytest
 from agent.reporter import render_finding, render_run
 from agent.schema import Evidence, Finding, ReproStep, Severity
 
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / "templates" / "finding.schema.json"
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "templates" / "finding.schema.json"
 
 
 def _finding(**kwargs) -> Finding:
