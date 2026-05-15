@@ -1,0 +1,5 @@
+env
+ios info binary
+ios plist cat Info.plist
+ios bundles list_frameworks
+ios hooking list classes

@@ -1,0 +1,54 @@
+# Optional engagement description — not enforced by the platform, just a record.
+#
+# Save as `engagement.yaml` in the repo root or pass via `--engagement` to
+# `lolmcp run`. Useful for documenting scope, contacts, and credentials when
+# you come back to a run weeks later.
+
+target:
+  bundle_id: com.example.targetapp
+  app_version: "1.2.3"
+  ios_version: "17.5"
+  device_id: null    # null = first USB device
+
+scope:
+  in_scope_hosts:
+    - api.example.com
+    - "*.example.com"
+  out_of_scope_hosts:
+    - analytics.example.com
+    - sentry.io
+  notes: |
+    Production API. Only test against /v1/* endpoints. Avoid /admin/*.
+
+sessions:
+  # Each session is independent credentials used for cross-tenant testing.
+  user_a:
+    label: user_a
+    auth_header: "Bearer eyJ..."
+    identity_id: "12345"
+  user_b:
+    label: user_b
+    auth_header: "Bearer eyJ..."
+    identity_id: "67890"
+  anon:
+    label: anon
+
+budget:
+  wall_clock_seconds: 1800
+  max_replays: 2000
+  max_active_mutations: 500
+
+modules:
+  # Override the default order or skip specific modules.
+  order:
+    - auth
+    - idor
+    - mass_assignment
+    - tamper
+    - token_analysis
+  skip:
+    - graphql
+
+reporting:
+  output_dir: reports
+  formats: [markdown, json]

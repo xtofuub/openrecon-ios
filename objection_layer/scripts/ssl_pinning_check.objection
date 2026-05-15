@@ -1,0 +1,3 @@
+ios sslpinning disable
+ios hooking search classes SecTrust
+ios hooking search classes Pinning

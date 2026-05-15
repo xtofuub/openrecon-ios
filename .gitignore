@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+env/
+.python-version
+
+# uv
+.uv-cache/
+uv.lock.bak
+
+# Type checking + linting
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Runtime output
+runs/
+reports/output/
+*.log
+*.har
+*.mitm
+*.pcap
+
+# Secrets / engagement configs
+.env
+.env.*
+!.env.example
+engagement.yaml
+engagement.*.yaml
+!templates/engagement.example.yaml
+
+# Frida / Objection ephemeral
+*.frida-session
+.frida-history
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+*.swp
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# OS
+.AppleDouble
+.LSOverride
+ehthumbs.db

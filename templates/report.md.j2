@@ -1,0 +1,24 @@
+# Engagement Report
+
+{% if findings %}
+**Run:** `{{ findings[0].run_id }}`
+{% endif %}
+
+## Findings by severity
+
+{% set sev_order = ["critical", "high", "medium", "low", "info"] %}
+{% for sev in sev_order %}
+{% set group = findings | selectattr("severity.value", "equalto", sev) | list %}
+{% if group %}
+### {{ sev|capitalize }} ({{ group|length }})
+
+{% for f in group %}
+- **[{{ f.title }}](findings/{{ f.finding_id }}.md)** — `{{ f.category }}` · confidence `{{ "%.2f"|format(f.confidence) }}`
+{% endfor %}
+
+{% endif %}
+{% endfor %}
+
+{% if not findings %}
+_No findings recorded for this run._
+{% endif %}

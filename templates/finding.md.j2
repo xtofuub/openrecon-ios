@@ -1,0 +1,52 @@
+---
+finding_id: {{ f.finding_id }}
+run_id: {{ f.run_id }}
+severity: {{ f.severity.value if f.severity is iterable and f.severity is not string else f.severity }}
+category: {{ f.category }}
+confidence: {{ "%.2f"|format(f.confidence) }}
+ts: {{ f.ts }}
+tags: [{{ f.tags | join(", ") }}]
+---
+
+# {{ f.title }}
+
+**Severity:** `{{ f.severity.value if f.severity.value is defined else f.severity }}` · **Category:** `{{ f.category }}` · **Confidence:** `{{ "%.2f"|format(f.confidence) }}`
+
+## Summary
+
+{{ f.summary }}
+
+## Evidence
+
+{% for e in f.evidence %}
+- `{{ e.kind }}` → `{{ e.ref }}`{% if e.note %} — {{ e.note }}{% endif %}
+{% endfor %}
+
+{% if f.correlated_frida %}
+## Runtime context
+
+{% for fid in f.correlated_frida %}
+- Frida event `{{ fid }}`
+{% endfor %}
+{% endif %}
+
+## Reproduction
+
+{% for step in f.reproduction %}
+{{ loop.index }}. **{{ step.description }}**
+   Primitive: `{{ step.primitive }}`{% if step.expected %}
+   Expected: {{ step.expected }}{% endif %}
+{% if step.args %}
+   Args:
+   ```json
+   {{ step.args | tojson(indent=2) }}
+   ```
+{% endif %}
+{% endfor %}
+
+{% if f.correlated_flows %}
+## Flow IDs
+
+{% for fid in f.correlated_flows %}- `{{ fid }}`
+{% endfor %}
+{% endif %}

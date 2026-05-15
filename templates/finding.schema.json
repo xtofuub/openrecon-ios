@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lolmcp.local/schemas/finding.json",
+  "title": "Finding",
+  "type": "object",
+  "required": ["finding_id", "run_id", "severity", "category", "title", "summary"],
+  "properties": {
+    "finding_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+    "category": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string" },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "ref"],
+        "properties": {
+          "kind": { "enum": ["flow", "frida_event", "correlation", "artifact"] },
+          "ref": { "type": "string", "minLength": 1 },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "correlated_flows": { "type": "array", "items": { "type": "string" } },
+    "correlated_frida": { "type": "array", "items": { "type": "string" } },
+    "reproduction": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "primitive"],
+        "properties": {
+          "description": { "type": "string" },
+          "primitive": { "type": "string" },
+          "args": { "type": "object" },
+          "expected": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "ts": { "type": "number" }
+  },
+  "additionalProperties": true
+}
