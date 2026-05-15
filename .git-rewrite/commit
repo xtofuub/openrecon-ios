@@ -1,0 +1,8 @@
+tree 50318fe0ce3fb1812a16c5c484b0a5b9444a0d68
+author xtofuub <99559348+xtofuub@users.noreply.github.com> 1778862041 +0300
+committer xtofuub <99559348+xtofuub@users.noreply.github.com> 1778862041 +0300
+
+Squashed 'mitm/vendor/' content from commit f6fb726
+
+git-subtree-dir: mitm/vendor
+git-subtree-split: f6fb7261d0174c737b5861e265e558460e8e7833

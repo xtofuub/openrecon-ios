@@ -23,6 +23,7 @@ from .steps import (  # noqa: I001  (keep import order stable)
     RenderFindings,
     RunModule,
     Step,
+    TestHypothesis,
 )
 
 if TYPE_CHECKING:
@@ -113,13 +114,18 @@ class Planner:
             return RenderFindings() if self.state.phase == Phase.REPORT else self._next_module_step() or RenderFindings()
 
         if self.state.phase == Phase.EXPLOIT:
-            # Try the LLM for a confirmation pass before declaring done.
+            hypothesis_step = self._open_hypothesis_step()
+            if hypothesis_step is not None:
+                return hypothesis_step
             proposed = self._llm_propose()
             if proposed is not None:
                 return proposed
             self.state.phase = Phase.REPORT
             return RenderFindings()
 
+        hypothesis_step = self._open_hypothesis_step()
+        if hypothesis_step is not None:
+            return hypothesis_step
         proposed = self._llm_propose()
         if proposed is not None:
             return proposed
@@ -167,6 +173,14 @@ class Planner:
         if self.llm is None or not getattr(self.llm, "enabled", False):
             return None
         return self.llm.propose(self.state, self.query)
+
+    def _open_hypothesis_step(self) -> Step | None:
+        from . import hypotheses as h_store
+
+        opens = h_store.open_hypotheses(self.query.run_dir)
+        if not opens:
+            return None
+        return TestHypothesis(hypothesis_id=opens[0].hypothesis_id)
 
 
 __all__ = ["Planner"]

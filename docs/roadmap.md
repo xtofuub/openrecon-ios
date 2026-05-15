@@ -124,12 +124,14 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [x] `templates/report.md.j2` — top-level TOC grouped by severity.
 - [x] `templates/finding.schema.json` — strict JSON schema. Validated in tests via `jsonschema`.
 - [x] `agent/reporter.py` — renders per-finding `.md` + `.json` and `report.{md,json}` index.
-- [x] `agent/cli.py` — `openrecon report <run_id>` collates findings, `openrecon replay <finding_id>` executes repro steps, `openrecon runs` lists engagements, `openrecon export <run_id>` produces a tar.gz bundle with MANIFEST.json (sha256 per file).
+- [x] `agent/cli.py` — `openrecon report <run_id>` collates findings, `openrecon replay <finding_id>` executes repro steps, `openrecon runs` lists engagements, `openrecon export <run_id>` produces a tar.gz bundle with MANIFEST.json (sha256 per file), `openrecon diff <run_a> <run_b>` compares two engagements.
 - [x] `agent/replay.py` — walks `ReproStep` entries, classifies overall as reproduced / no-repro / partial / error.
 - [x] `agent/runs.py` — engagement enumeration + per-run summaries.
 - [x] `agent/export.py` — shareable bundle export, SQLite indexes excluded (rebuildable).
+- [x] `agent/diff.py` — cross-run delta: endpoint coverage (new/removed/persistent), findings keyed by `(category, title)`, counter tuples for flows / frida events / findings by severity.
+- [x] `agent/hypotheses.py` — append-only hypothesis store with status transitions (open → confirmed / refuted / stale). Finder rules can record claims they can't yet promote to findings.
 - [x] `agent/owasp_mapping.py` — OWASP Mobile Top 10 (2024) annotation. Reporter writes `owasp` field into per-finding JSON and renders an OWASP block in Markdown.
-- [x] `tests/orchestration/test_{reporter,replay}.py`, `tests/unit/test_{runs,export,owasp_mapping,endpoint_map}.py`.
+- [x] `tests/orchestration/test_{reporter,replay}.py`, `tests/unit/test_{runs,export,diff,hypotheses,owasp_mapping,endpoint_map}.py`.
 
 **Exit:** generated reports validate against the JSON schema and render correctly. ✅
 
@@ -144,11 +146,13 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 
 ## Test coverage
 
-92 tests passing across:
-- `tests/unit/` — schema round-trips, store + SQLite indexes, correlator scoring, query API.
+128 tests passing across:
+- `tests/unit/` — schema round-trips, store + SQLite indexes, correlator scoring, query API, endpoint templating, runs enumeration, run export, run diff, hypothesis store, OWASP mapping.
 - `tests/modules/` — all 7 api/ modules with `FakeMitmClient` + fixture flows.
 - `tests/orchestration/` — planner phase transitions, finder rules, reporter render + schema, replay command, LLM proposer parsing.
 - `tests/integration/` — MCP stdio client end-to-end with a HAR-backed fixture server, iOS replay profile headers.
+
+CI: GitHub Actions runs `ruff check` + `pytest` on every push and PR against Python 3.12 and 3.13.
 
 ## Milestone summary
 

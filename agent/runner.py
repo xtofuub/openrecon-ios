@@ -82,7 +82,7 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
                 ctx = ExecContext(state=state, store=store, query=query, extras=extras)
                 result = await step.execute(ctx)
                 save_state(state, run_dir)
-                for finding in finder.run_all(query, state):
+                for finding in finder.run_all(query, state, run_dir=run_dir):
                     store.append("findings", finding)
                 log.info(
                     "engagement.step",

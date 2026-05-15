@@ -187,6 +187,71 @@ class CorrelateRange(Step):
         return StepResult(summary=f"correlations={len(corrs)}", payload={"count": len(corrs)})
 
 
+class TestHypothesis(Step):
+    """Confirm or refute an open hypothesis by executing its first test plan.
+
+    Today the only test shape supported is `replay_with_body_mutation:<flow_id>` —
+    replay the flow with a mutated body and observe whether the server still
+    accepts it. Future hypothesis tests can register handlers here.
+    """
+
+    __test__ = False  # not a pytest test class — silences collection warning
+    name = "TestHypothesis"
+
+    async def _run(self, ctx: ExecContext) -> StepResult:
+        from . import hypotheses as h_store
+        from .schema import Hypothesis
+
+        run_dir = ctx.store.run_dir
+        target_id = self.kwargs.get("hypothesis_id")
+        opens = h_store.open_hypotheses(run_dir)
+        h: Hypothesis | None = None
+        if target_id:
+            for candidate in opens:
+                if candidate.hypothesis_id == target_id:
+                    h = candidate
+                    break
+        elif opens:
+            h = opens[0]
+        if h is None:
+            return StepResult(success=False, summary="no open hypothesis to test")
+
+        # Currently we only know one test shape; everything else gets marked stale.
+        test_spec = next(iter(h.tests or []), "")
+        if not test_spec.startswith("replay_with_body_mutation:"):
+            h_store.set_status(run_dir, h.hypothesis_id, "stale")
+            return StepResult(summary=f"hypothesis {h.hypothesis_id} stale (unknown test {test_spec!r})")
+
+        flow_id = test_spec.split(":", 1)[1]
+        client = ctx.extras.get("mitm_client")
+        if client is None:
+            return StepResult(success=False, summary="no mitm_client in context")
+
+        baseline = ctx.query.flow(flow_id) or {}
+        baseline_status = (baseline.get("response") or {}).get("status")
+        replay = await client.replay_flow(
+            flow_id,
+            overrides={"body_patch": {"_openrecon_probe": "mutation"}},
+        )
+        replay_status = (replay.get("response") or {}).get("status", 0)
+
+        # If body is signed, the server should reject the mutated body.
+        if 400 <= replay_status < 500 and baseline_status and 200 <= baseline_status < 300:
+            h_store.set_status(
+                run_dir, h.hypothesis_id, "confirmed", evidence_refs=[replay.get("flow_id", "?")]
+            )
+            outcome = "confirmed"
+        else:
+            h_store.set_status(
+                run_dir, h.hypothesis_id, "refuted", evidence_refs=[replay.get("flow_id", "?")]
+            )
+            outcome = "refuted"
+        return StepResult(
+            summary=f"hypothesis {h.hypothesis_id} {outcome} (baseline={baseline_status}, replay={replay_status})",
+            payload={"hypothesis_id": h.hypothesis_id, "outcome": outcome},
+        )
+
+
 class RunModule(Step):
     name = "RunModule"
 
@@ -272,6 +337,7 @@ __all__ = [
     "MapEndpoints",
     "DetectAuthPattern",
     "CorrelateRange",
+    "TestHypothesis",
     "RunModule",
     "GenerateReport",
     "RenderFindings",

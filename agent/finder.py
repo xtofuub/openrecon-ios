@@ -8,13 +8,16 @@ deduplicated by `(category, correlated_flows_sorted)`.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Protocol
 
+from . import hypotheses as hypothesis_store
 from .query import RunQuery
 from .schema import (
     EngagementState,
     Evidence,
     Finding,
+    Hypothesis,
     ReproStep,
     Severity,
 )
@@ -24,6 +27,14 @@ class FindingRule(Protocol):
     name: str
 
     def match(self, q: RunQuery, state: EngagementState) -> list[Finding]: ...
+
+
+class HypothesisRule(Protocol):
+    """Rules that emit hypotheses (open investigations) instead of findings."""
+
+    name: str
+
+    def match_hypotheses(self, q: RunQuery, state: EngagementState) -> list[Hypothesis]: ...
 
 
 class AuthHeaderInferenceRule:
@@ -244,6 +255,45 @@ class ClientSideValidationBypassRule:
         return findings
 
 
+class SignedRequestSuspicionRule:
+    """When a flow carries both an Authorization header *and* a signature-ish
+    header (X-Sig, X-Signature, X-Hmac, ...), record an open hypothesis that
+    the request body is signed and needs the signature regenerated to mutate.
+
+    The hypothesis is the planner's cue to schedule a `TestHypothesis` step:
+    replay the flow with an altered body and observe whether the server
+    rejects it (confirms signing) or still 2xx's (refutes signing).
+    """
+
+    name = "SignedRequestSuspicion"
+
+    SIGNATURE_HEADERS = ("x-sig", "x-signature", "x-hmac", "x-signed", "x-content-sig")
+
+    def match_hypotheses(self, q: RunQuery, state: EngagementState) -> list[Hypothesis]:
+        hypotheses: list[Hypothesis] = []
+        seen_headers: set[str] = set()
+        for flow in q.flows():
+            headers = {k.lower(): v for k, v in flow["request"]["headers"].items()}
+            if "authorization" not in headers and "cookie" not in headers:
+                continue
+            for sig_header in self.SIGNATURE_HEADERS:
+                if sig_header not in headers or sig_header in seen_headers:
+                    continue
+                seen_headers.add(sig_header)
+                hypotheses.append(
+                    Hypothesis(
+                        claim=(
+                            f"Request body is signed by header `{sig_header}` — "
+                            "altering the body should fail server-side verification"
+                        ),
+                        status="open",
+                        tests=[f"replay_with_body_mutation:{flow['flow_id']}"],
+                        evidence=[Evidence(kind="flow", ref=flow["flow_id"], note="auth + signature header")],
+                    )
+                )
+        return hypotheses
+
+
 DEFAULT_RULES: tuple[FindingRule, ...] = (
     AuthHeaderInferenceRule(),
     HookedCryptoAsSignatureRule(),
@@ -252,8 +302,25 @@ DEFAULT_RULES: tuple[FindingRule, ...] = (
     ClientSideValidationBypassRule(),
 )
 
+DEFAULT_HYPOTHESIS_RULES: tuple[HypothesisRule, ...] = (
+    SignedRequestSuspicionRule(),
+)
 
-def run_all(q: RunQuery, state: EngagementState, rules: Iterable[FindingRule] | None = None) -> list[Finding]:
+
+def run_all(
+    q: RunQuery,
+    state: EngagementState,
+    rules: Iterable[FindingRule] | None = None,
+    *,
+    hypothesis_rules: Iterable[HypothesisRule] | None = None,
+    run_dir: Path | None = None,
+) -> list[Finding]:
+    """Run every finding rule and (optionally) every hypothesis rule.
+
+    Hypotheses are appended to `<run_dir>/hypotheses.jsonl` if `run_dir` is
+    provided; otherwise they are computed and discarded (useful for tests that
+    only care about findings).
+    """
     rules = list(rules) if rules is not None else list(DEFAULT_RULES)
     seen: set[tuple[str, tuple[str, ...]]] = set()
     out: list[Finding] = []
@@ -264,7 +331,20 @@ def run_all(q: RunQuery, state: EngagementState, rules: Iterable[FindingRule] | 
                 continue
             seen.add(key)
             out.append(finding)
+
+    if run_dir is not None:
+        h_rules = list(hypothesis_rules) if hypothesis_rules is not None else list(DEFAULT_HYPOTHESIS_RULES)
+        for rule in h_rules:
+            for h in rule.match_hypotheses(q, state):
+                hypothesis_store.append(run_dir, h)
+
     return out
 
 
-__all__ = ["FindingRule", "run_all", "DEFAULT_RULES"]
+__all__ = [
+    "FindingRule",
+    "HypothesisRule",
+    "run_all",
+    "DEFAULT_RULES",
+    "DEFAULT_HYPOTHESIS_RULES",
+]
