@@ -47,10 +47,10 @@ def _get_flow(flow_id: str, url: str, body: dict) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_mass_assignment_emits_finding_when_hidden_field_accepted(
+async def test_mass_assignment_unconfirmed_when_no_get_reflection(
     run_dir, write_flow_to_run, fake_mitm_client
 ):
-    # GET reveals an "is_admin" field; POST never sets it; injection should trigger.
+    """Server accepts injected field but GET doesn't reflect it → MEDIUM severity."""
     write_flow_to_run(run_dir, _get_flow("g1", "https://api/x/me", {"id": 1, "is_admin": False}))
     write_flow_to_run(run_dir, _post_flow("p1", "https://api/x/me", {"name": "alice"}))
 
@@ -66,10 +66,45 @@ async def test_mass_assignment_emits_finding_when_hidden_field_accepted(
         config={},
     )
     result = await MassAssignmentModule().run(inp)
+    medium = [f for f in result.findings if f.severity == Severity.MEDIUM]
+    assert medium, "expected unconfirmed (medium) findings when injection accepted but GET doesn't reflect"
+    assert all("unconfirmed" in (f.tags or []) for f in medium)
+
+
+@pytest.mark.asyncio
+async def test_mass_assignment_confirmed_critical_when_get_reflects_injected_field(
+    run_dir, write_flow_to_run, fake_mitm_client
+):
+    """GET re-fetch shows injected field → CRITICAL severity."""
+    write_flow_to_run(run_dir, _get_flow("g1", "https://api/x/me", {"id": 1, "is_admin": False}))
+    write_flow_to_run(run_dir, _post_flow("p1", "https://api/x/me", {"name": "alice"}))
+
+    def replay(flow_id, overrides, fake):
+        # When replaying the GET flow (the confirmation step), return a body
+        # showing the injected field landed.
+        if flow_id == "g1":
+            confirmed_body = base64.b64encode(
+                json.dumps({"id": 1, "is_admin": True}).encode()
+            ).decode()
+            return {"flow_id": "r-get", "response": {"status": 200, "body_b64": confirmed_body}}
+        return {"flow_id": "r", "response": {"status": 200}}
+
+    client = fake_mitm_client(
+        flows={"p1": _post_flow("p1", "https://api/x/me", {"name": "alice"})},
+        scripts={"replay_flow": replay},
+    )
+    inp = ModuleInput(
+        run_dir=run_dir,
+        baseline_flow_ids=["p1"],
+        session_pool={},
+        mitm_mcp=client,
+        config={},
+    )
+    result = await MassAssignmentModule().run(inp)
     crit = [f for f in result.findings if f.severity == Severity.CRITICAL]
     assert crit
-    titles = " ".join(f.title for f in crit)
-    assert "is_admin" in titles or "role" in titles
+    assert any("is_admin" in f.title for f in crit)
+    assert any("confirmed" in (f.tags or []) for f in crit)
 
 
 @pytest.mark.asyncio

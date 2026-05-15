@@ -402,6 +402,29 @@ async def load_traffic_file(
         scope: Comma-separated list of domains to filter by during import.
             Only flows matching these domains are imported.
     """
+    # openrecon: optional path-traversal guard. If MITMPROXY_MCP_ALLOWED_ROOT
+    # (or LOLMCP_RUN_DIR) is set, resolve and confirm the path lives under it.
+    # No-op when neither env var is set — preserves upstream behavior.
+    import os as _os
+    import pathlib as _pathlib
+
+    _root_env = _os.environ.get("MITMPROXY_MCP_ALLOWED_ROOT") or _os.environ.get(
+        "LOLMCP_RUN_DIR"
+    )
+    if _root_env:
+        try:
+            _allowed = _pathlib.Path(_root_env).resolve()
+            _target = _pathlib.Path(file_path).resolve()
+            if _target != _allowed and _allowed not in _target.parents:
+                return json.dumps(
+                    {
+                        "status": "error",
+                        "message": f"path {_target} outside allowed root {_allowed}",
+                    }
+                )
+        except Exception as _exc:
+            return json.dumps({"status": "error", "message": f"path check failed: {_exc}"})
+
     scope_list = (
         [d.strip() for d in scope.split(",") if d.strip()] if scope else None
     )

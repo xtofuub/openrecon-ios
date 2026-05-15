@@ -6,13 +6,14 @@ We track every divergence from upstream here. Carry these forward on every `git 
 
 ### Active patches
 
-_None applied yet. The list below tracks gaps we know about; patch them on a separate commit when you wire up real traffic._
+| Patch | Location | Description |
+|---|---|---|
+| Path-traversal guard on `load_traffic_file` | `src/mitmproxy_mcp/core/server.py:390` | Adds an env-gated check: if `MITMPROXY_MCP_ALLOWED_ROOT` or `LOLMCP_RUN_DIR` is set, `file_path` is resolved and must live under that root. Without the env var, behavior is identical to upstream — additive, no breaking change. Mirrors the client-side guard `mitm/client.py` enforces. |
 
 ### Known gaps to evaluate
 
 | Issue | Location | Status | Action |
 |---|---|---|---|
-| Path traversal in `load_traffic_file` | `src/mitmproxy_mcp/core/server.py:390` (was line 324 in earlier versions) | **Not patched.** `file_path` is passed straight to `recorder.db.import_from_file`. Whether the recorder layer sanitizes it needs verification. | Audit `recorder.import_from_file`. If unsanitized, add `pathlib.Path(file_path).resolve()` check against `$openrecon_RUN_DIR` before calling. |
 | iOS-specific CA installation | none | upstream doesn't help | Add `ios_install_ca` tool in `mitm/addons/` (planned, Phase 3) |
 | WiFi proxy config push | none | upstream doesn't help | Add `ios_set_wifi_proxy` tool via libimobiledevice (planned) |
 

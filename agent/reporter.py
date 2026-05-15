@@ -11,6 +11,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from .owasp_mapping import annotate_finding, owasp_for_category
 from .schema import Finding
 
 
@@ -29,7 +30,7 @@ def _env() -> Environment:
 def render_finding(finding: Finding, env: Environment | None = None) -> str:
     env = env or _env()
     template = env.get_template("finding.md.j2")
-    return template.render(f=finding)
+    return template.render(f=finding, owasp=owasp_for_category(finding.category))
 
 
 def render_run(run_dir: Path) -> int:
@@ -48,8 +49,9 @@ def render_run(run_dir: Path) -> int:
             if not line:
                 continue
             finding = Finding.model_validate_json(line)
+            enriched = annotate_finding(finding.model_dump(mode="json"))
             (out_dir / f"{finding.finding_id}.json").write_text(
-                finding.model_dump_json(indent=2), encoding="utf-8"
+                json.dumps(enriched, indent=2, default=str), encoding="utf-8"
             )
             (out_dir / f"{finding.finding_id}.md").write_text(
                 render_finding(finding, env), encoding="utf-8"
@@ -77,7 +79,7 @@ def _write_index(run_dir: Path) -> None:
             {
                 "run_id": findings[0].run_id if findings else None,
                 "counts": {sev: sum(1 for f in findings if f.severity.value == sev) for sev in order},
-                "findings": [f.model_dump() for f in findings],
+                "findings": [annotate_finding(f.model_dump(mode="json")) for f in findings],
             },
             indent=2,
             default=str,

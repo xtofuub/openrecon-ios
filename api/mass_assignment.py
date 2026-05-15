@@ -69,6 +69,7 @@ class MassAssignmentModule(ApiModule):
 
         for flow in write_flows:
             coverage.totals["flows"] += 1
+            resource_get = _find_matching_get_flow(inp, flow)
             for key in candidate_keys:
                 coverage.totals["candidates"] += 1
                 value = _value_for(key, user_b_id)
@@ -76,8 +77,23 @@ class MassAssignmentModule(ApiModule):
                     flow["flow_id"], overrides={"body_patch": {key: value}}
                 )
                 status = (replay.get("response") or {}).get("status", 0)
-                if 200 <= status < 300:
-                    findings.append(_finding(inp, flow, replay, key, value))
+                if not (200 <= status < 300):
+                    continue
+                # Confirm: re-fetch the resource via GET, see if the injected
+                # field is reflected. Severity bumps to critical when reflected;
+                # stays medium otherwise (write accepted but field not visible).
+                confirmed = False
+                follow_flow_id: str | None = None
+                if resource_get is not None:
+                    follow = await inp.mitm_mcp.replay_flow(resource_get["flow_id"])
+                    follow_flow_id = follow.get("flow_id")
+                    confirmed = _field_reflected(follow, key, value)
+                findings.append(
+                    _finding(
+                        inp, flow, replay, key, value,
+                        confirmed=confirmed, follow_flow_id=follow_flow_id,
+                    )
+                )
             coverage.tested.append(flow["flow_id"])
 
         return ModuleResult(module=self.name, findings=findings, coverage=coverage)
@@ -153,25 +169,96 @@ def _value_for(key: str, user_b_id: str | None) -> Any:
     return True
 
 
+def _find_matching_get_flow(inp: ModuleInput, write_flow: dict[str, Any]) -> dict[str, Any] | None:
+    """Find a GET flow for the same resource family as the write flow."""
+    from urllib.parse import urlparse
+
+    write_url = urlparse(write_flow["request"]["url"])
+    write_host = write_url.hostname or ""
+    write_path = write_url.path or ""
+
+    path = inp.run_dir / "mitm_flows.jsonl"
+    if not path.exists():
+        return None
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            if r["request"]["method"].upper() != "GET":
+                continue
+            u = urlparse(r["request"]["url"])
+            if (u.hostname or "") != write_host:
+                continue
+            # Same path or sibling resource (path prefix match on first 2 segs).
+            write_segs = write_path.split("/")[:3]
+            seg = u.path.split("/")[:3]
+            if write_segs == seg:
+                return r
+    return None
+
+
+def _field_reflected(follow: dict[str, Any], key: str, value: Any) -> bool:
+    """Return True if the GET response body shows the injected field with the injected value."""
+    body_b64 = (follow.get("response") or {}).get("body_b64")
+    if not body_b64:
+        return False
+    try:
+        decoded = base64.b64decode(body_b64).decode("utf-8", "ignore")
+        data = json.loads(decoded)
+    except Exception:
+        return False
+    return _key_value_present(data, key, value)
+
+
+def _key_value_present(node: Any, key: str, value: Any) -> bool:
+    if isinstance(node, dict):
+        if key in node and node[key] == value:
+            return True
+        return any(_key_value_present(v, key, value) for v in node.values())
+    if isinstance(node, list):
+        return any(_key_value_present(item, key, value) for item in node)
+    return False
+
+
 def _finding(
-    inp: ModuleInput, flow: dict[str, Any], replay: dict[str, Any], key: str, value: Any
+    inp: ModuleInput,
+    flow: dict[str, Any],
+    replay: dict[str, Any],
+    key: str,
+    value: Any,
+    *,
+    confirmed: bool = False,
+    follow_flow_id: str | None = None,
 ) -> Finding:
+    severity = Severity.CRITICAL if confirmed else Severity.MEDIUM
+    confirm_note = "confirmed via GET" if confirmed else "write accepted but not confirmed via GET"
+    evidence = [
+        Evidence(kind="flow", ref=flow["flow_id"], note="baseline"),
+        Evidence(
+            kind="flow", ref=replay.get("flow_id", "?"), note=f"injected {key}={value!r}"
+        ),
+    ]
+    if follow_flow_id:
+        evidence.append(Evidence(kind="flow", ref=follow_flow_id, note="GET confirmation"))
+    correlated = [flow["flow_id"], replay.get("flow_id", "?")]
+    if follow_flow_id:
+        correlated.append(follow_flow_id)
     return Finding(
         run_id=str(inp.run_dir.name),
-        severity=Severity.CRITICAL,
+        severity=severity,
         category="mass-assignment",
         title=f"Field `{key}` accepted on {flow['request']['method']} {flow['request']['url']}",
         summary=(
             f"Injected `{key}={value!r}` and the server returned "
-            f"{replay.get('response', {}).get('status')}. Confirm via GET that the field persisted."
+            f"{replay.get('response', {}).get('status')} ({confirm_note})."
         ),
-        evidence=[
-            Evidence(kind="flow", ref=flow["flow_id"], note="baseline"),
-            Evidence(
-                kind="flow", ref=replay.get("flow_id", "?"), note=f"injected {key}={value!r}"
-            ),
-        ],
-        correlated_flows=[flow["flow_id"], replay.get("flow_id", "?")],
+        evidence=evidence,
+        correlated_flows=correlated,
         reproduction=[
             ReproStep(
                 description="Replay write with injected field",
@@ -180,8 +267,8 @@ def _finding(
                 expected="2xx and the field is reflected on subsequent GET",
             )
         ],
-        tags=["mass-assignment", key],
-        confidence=0.55,  # needs confirmation
+        tags=["mass-assignment", key, ("confirmed" if confirmed else "unconfirmed")],
+        confidence=0.9 if confirmed else 0.55,
     )
 
 

@@ -16,6 +16,13 @@ tags: [{{ f.tags | join(", ") }}]
 
 {{ f.summary }}
 
+{% if owasp %}
+## OWASP Mobile Top 10
+
+{% for code, title in owasp %}- **{{ code }}** — {{ title }}
+{% endfor %}
+{% endif %}
+
 ## Evidence
 
 {% for e in f.evidence %}
