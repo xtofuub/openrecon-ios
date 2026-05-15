@@ -1,4 +1,4 @@
-# lolmcp — Autonomous iOS Security Research Platform
+# openrecon — Autonomous iOS Security Research Platform
 
 A unified Claude Code-driven workflow that fuses **Frida**, **Objection**, and a forked **MITMProxy MCP** into one autonomous mobile security analyst.
 
@@ -21,7 +21,7 @@ The platform inspects an iOS app at runtime, captures and mutates its network tr
 ## Layout
 
 ```
-lolmcp/
+openrecon/
 ├── agent/         # planner, workflow engine, correlation, finding generator
 ├── api/           # bug-bounty modules (IDOR, auth, mass assignment, GraphQL, ...)
 ├── frida_layer/   # JS hooks + Python orchestrator (jailbroken-first)
@@ -45,23 +45,28 @@ lolmcp/
 
 ## Quick start
 
+**Prerequisites:** Python 3.12–3.13 · jailbroken iOS device with `frida-server` · mitmproxy CA cert installed on device · USB connection
+
 ```bash
-# Prerequisites: Python 3.12 or 3.13, a jailbroken iOS device with frida-server,
-#                CA cert installed on the device, USB connection.
-
-# 1. Install dependencies (uv recommended; pip also works)
-uv sync
-
-# 2. Vendor the upstream projects (one-time, see docs/roadmap.md)
-git subtree add --prefix=mitm/vendor https://github.com/snapspecter/mitmproxy-mcp main --squash
-git subtree add --prefix=skills/_upstream/anthropic-cybersecurity-skills \
-    https://github.com/mukul975/Anthropic-Cybersecurity-Skills main --squash
-
-# 3. Launch an engagement
-lolmcp run --target com.example.targetapp --device usb
+git clone https://github.com/xtofuub/openrecon-ios
+cd openrecon-ios
+uv sync              # or: pip install -e .
+openrecon doctor     # verify frida-tools, objection, mitmdump
+openrecon run --target com.example.targetapp --device usb
 ```
 
-Claude Code session: open this repo, the top-level `ios-security-research` skill auto-triggers when you describe an iOS engagement.
+Everything is already bundled — `mitm/vendor/` (mitmproxy-mcp) and `skills/_upstream/` (Anthropic iOS skills) ship in the repo. No extra setup commands.
+
+**Claude Code:** open this folder. The `ios-security-research` skill auto-triggers on iOS engagement language. The MCP server (`openrecon-mitm`) starts automatically via `.claude/settings.json`.
+
+**MCP only (no Claude Code):** point your MCP client at:
+```json
+{
+  "command": "python",
+  "args": ["-m", "mitmproxy_mcp.core.server"],
+  "env": { "PYTHONPATH": "mitm/vendor/src:." }
+}
+```
 
 ---
 
@@ -71,4 +76,4 @@ Phase 1 scaffolding. See [docs/roadmap.md](docs/roadmap.md) for milestones and [
 
 ## License
 
-MIT for original code in this repo. Vendored upstream projects retain their own licenses (see `mitm/vendor/LICENSE` and `skills/_upstream/*/LICENSE` after vendoring).
+MIT for original code in this repo. Vendored upstream projects retain their own licenses — see [`mitm/vendor/LICENSE`](mitm/vendor/LICENSE) and [`skills/_upstream/anthropic-cybersecurity-skills/LICENSE`](skills/_upstream/anthropic-cybersecurity-skills/LICENSE).
