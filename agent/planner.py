@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .schema import Phase
-from .steps import (
+from .steps import (  # noqa: I001  (keep import order stable)
     CorrelateRange,
     DetectAuthPattern,
     EnvironmentCheck,
@@ -27,6 +27,7 @@ from .steps import (
 )
 
 if TYPE_CHECKING:
+    from .llm import LlmStepProposer
     from .query import RunQuery
     from .schema import EngagementState
 
@@ -49,7 +50,13 @@ _DEFAULT_HOOKS = (
 
 
 class Planner:
-    """Rule-driven next-step picker."""
+    """Rule-driven next-step picker.
+
+    The decision loop is deterministic by default. If an `LlmStepProposer` is
+    passed (or `enable_llm=True` and `ANTHROPIC_API_KEY` is set), the planner
+    falls back to it when the rules would otherwise emit `RenderFindings` too
+    early — letting Claude propose a novel investigation step.
+    """
 
     def __init__(
         self,
@@ -57,12 +64,19 @@ class Planner:
         query: "RunQuery",
         *,
         modules: tuple[str, ...] = _DEFAULT_MODULE_ORDER,
+        llm: "LlmStepProposer | None" = None,
+        enable_llm: bool = False,
     ) -> None:
         self.state = state
         self.query = query
         self.modules = modules
-        self._bootstrap_index = 0  # how many bootstrap sub-steps we've emitted
+        self._bootstrap_index = 0
         self._modules_run: set[str] = set()
+        self.llm = llm
+        if llm is None and enable_llm:
+            from .llm import LlmStepProposer
+
+            self.llm = LlmStepProposer.from_env()
 
     def next_step(self) -> Step:
         if self.state.budget.exceeded() and self.state.phase != Phase.REPORT:
@@ -100,10 +114,16 @@ class Planner:
             return RenderFindings() if self.state.phase == Phase.REPORT else self._next_module_step() or RenderFindings()
 
         if self.state.phase == Phase.EXPLOIT:
-            # Phase 6 will add real confirmation logic. Today: jump to report.
+            # Try the LLM for a confirmation pass before declaring done.
+            proposed = self._llm_propose()
+            if proposed is not None:
+                return proposed
             self.state.phase = Phase.REPORT
             return RenderFindings()
 
+        proposed = self._llm_propose()
+        if proposed is not None:
+            return proposed
         return RenderFindings()
 
     # --------------------------------------------------------- bootstrap helpers
@@ -143,6 +163,11 @@ class Planner:
     @staticmethod
     def _has_high_severity(findings: list[dict]) -> bool:
         return any(f.get("severity") in ("high", "critical") for f in findings)
+
+    def _llm_propose(self) -> Step | None:
+        if self.llm is None or not getattr(self.llm, "enabled", False):
+            return None
+        return self.llm.propose(self.state, self.query)
 
 
 __all__ = ["Planner"]

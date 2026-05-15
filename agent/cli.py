@@ -101,11 +101,29 @@ def correlate(run_id: str, runs_root: str) -> None:
 @main.command()
 @click.argument("finding_id")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
-def replay(finding_id: str, runs_root: str) -> None:
-    """Replay a finding's reproduction steps."""
-    # Phase 7 wires this through to mitm.client.replay_flow per ReproStep.
-    click.echo(f"TODO: replay {finding_id} (Phase 7)", err=True)
-    sys.exit(64)
+@click.option("--write", "write_report", is_flag=True, help="Write replay_<id>.md next to the finding.")
+def replay(finding_id: str, runs_root: str, write_report: bool) -> None:
+    """Replay a finding's reproduction steps and report whether the issue still reproduces."""
+    import json as _json
+
+    from .replay import locate_finding, render_report, run_replay_sync
+
+    runs_root_path = Path(runs_root)
+    if not runs_root_path.exists():
+        click.echo(f"no runs at {runs_root_path}", err=True)
+        sys.exit(2)
+    try:
+        run_dir, _ = locate_finding(runs_root_path, finding_id)
+    except LookupError as exc:
+        click.echo(str(exc), err=True)
+        sys.exit(3)
+    report = run_replay_sync(finding_id, runs_root_path)
+    click.echo(_json.dumps(report.as_dict(), indent=2, default=str))
+    if write_report:
+        out = run_dir / "findings" / f"replay_{finding_id}.md"
+        out.write_text(render_report(report), encoding="utf-8")
+        click.echo(f"wrote {out}", err=True)
+    sys.exit(0 if report.overall in ("reproduced", "ok") else 1)
 
 
 if __name__ == "__main__":  # pragma: no cover

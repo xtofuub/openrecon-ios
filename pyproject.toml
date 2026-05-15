@@ -24,6 +24,8 @@ dependencies = [
     "mitmproxy>=12.0.0,<13",
     "mcp>=1.2,<2",
     "rich>=13.7,<15",
+    "jsonschema>=4.20,<5",
+    "anthropic>=0.39,<1",
 ]
 
 [project.optional-dependencies]
