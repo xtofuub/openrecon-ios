@@ -1,17 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "mcpServers": {
-    "lolmcp-mitm": {
+    "openrecon-mitm": {
       "command": "python",
       "args": [
         "-m",
-        "mitmproxy_mcp",
-        "--addons",
-        "mitm/addons/correlation_emitter.py",
-        "mitm/addons/ios_filter.py"
+        "mitmproxy_mcp.core.server"
       ],
       "env": {
-        "LOLMCP_RUN_DIR": "runs/_default",
+        "openrecon_RUN_DIR": "runs/_default",
         "PYTHONPATH": "mitm/vendor/src:."
       },
       "description": "Vendored mitmproxy-mcp + local iOS addons. Exposes the proxy as MCP tools (start_proxy, replay_flow, extract_from_flow, fuzz_endpoint, detect_auth_pattern, etc.)."
@@ -19,7 +16,7 @@
   },
   "permissions": {
     "allow": [
-      "Bash(lolmcp:*)",
+      "Bash(openrecon:*)",
       "Bash(python -m api.*)",
       "Bash(python -m agent.*)",
       "Bash(frida-ps:*)",

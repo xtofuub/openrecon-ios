@@ -20,7 +20,7 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [x] `.claude/settings.json` — MCP server registration (mitmproxy-mcp vendored)
 - [ ] `git subtree add` for `mitm/vendor` and `skills/_upstream/`  *(run after merging this commit)*
 
-**Exit:** `lolmcp doctor` runs and reports environment + vendored projects status.
+**Exit:** `openrecon doctor` runs and reports environment + vendored projects status.
 
 ---
 
@@ -41,7 +41,7 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [ ] `objection_layer/scripts/jailbreak_detection.objection`
 - [ ] `objection_layer/runner.py` — invoke `objection`, capture stdout, normalize to records.
 
-**Exit:** `lolmcp run --target <bid>` produces `frida_events.jsonl` with ≥100 events on a test app.
+**Exit:** `openrecon run --target <bid>` produces `frida_events.jsonl` with ≥100 events on a test app.
 
 ---
 
@@ -51,11 +51,12 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 
 - [ ] `git subtree add --prefix=mitm/vendor https://github.com/snapspecter/mitmproxy-mcp main --squash`
 - [ ] Patch path-traversal in `mitm/vendor/src/mitmproxy_mcp/core/server.py:324`. Record in `docs/vendor-patches.md`.
-- [ ] `mitm/client.py` — async MCP stdio client; wraps `start_proxy`, `replay_flow`, `extract_from_flow`, `fuzz_endpoint`, `detect_auth_pattern`, `set_session_variable`, `export_openapi_spec`.
+- [x] `mitm/client.py` — async MCP stdio client; wraps `start_proxy`, `replay_flow`, `extract_from_flow`, `fuzz_endpoint`, `detect_auth_pattern`, `set_session_variable`, `export_openapi_spec`.
+- [x] `tests/test_mitm_integration.py` — HAR-backed MCP stdio integration coverage for `start_proxy`, `load_traffic_file`, `inspect_flow`, `extract_from_flow`, `detect_auth_pattern`, `replay_flow`, `export_openapi_spec`, and run-dir import guarding.
 - [ ] `mitm/addons/correlation_emitter.py` — per-flow JSONL emitter to `runs/<id>/mitm_flows.jsonl`.
 - [ ] `mitm/addons/ios_filter.py` — Crashlytics/Sentry/analytics drop, `--strict` keeps everything.
-- [ ] `mitm/replay/ios.py` — iOS-aware replay (User-Agent, locale, device headers).
-- [ ] `.claude/settings.json` — register the vendored MCP server.
+- [x] `mitm/replay/ios.py` — iOS-aware replay (User-Agent, locale, device headers).
+- [x] `.claude/settings.json` — register the vendored MCP server.
 
 **Exit:** Claude Code can `start_proxy`, `replay_flow` from the session, and every captured flow appears in the run directory.
 
@@ -70,7 +71,7 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [ ] `agent/store.py` (complete) — SQLite indexes rebuilt incrementally.
 - [ ] `tests/test_correlate.py` — fixture-based tests with synthetic Frida + MITM events.
 
-**Exit:** on a recorded run, `lolmcp correlate runs/<id>` produces correlations.jsonl with ≥0.45 average confidence on flows that have a matching hook.
+**Exit:** on a recorded run, `openrecon correlate runs/<id>` produces correlations.jsonl with ≥0.45 average confidence on flows that have a matching hook.
 
 ---
 
@@ -101,7 +102,7 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [ ] `agent/finder.py` — pattern rules (`AuthHeaderInference`, `HookedCryptoAsSignature`, `CrossTenantLeak`).
 - [ ] `agent/runner.py` — full async engagement loop with crash recovery.
 
-**Exit:** unattended `lolmcp run --target <bid> --budget 30m` produces a report directory with ≥3 findings categories tested.
+**Exit:** unattended `openrecon run --target <bid> --budget 30m` produces a report directory with ≥3 findings categories tested.
 
 ---
 
@@ -111,8 +112,8 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 
 - [ ] `templates/finding.md.j2` — Markdown with reproduction steps, evidence flow_ids, runtime context, severity reasoning.
 - [ ] `templates/finding.schema.json` — strict JSON schema; CI validates.
-- [ ] `agent/cli.py` — `lolmcp report <run_id>` collates findings, generates `report.md` + `report.json` + `evidence/` bundle.
-- [ ] Optional: `lolmcp replay <finding_id>` re-executes the reproduction steps and confirms the issue still reproduces.
+- [ ] `agent/cli.py` — `openrecon report <run_id>` collates findings, generates `report.md` + `report.json` + `evidence/` bundle.
+- [ ] Optional: `openrecon replay <finding_id>` re-executes the reproduction steps and confirms the issue still reproduces.
 
 **Exit:** generated reports validate against the JSON schema and render correctly with reproduction steps a human can follow.
 
@@ -133,7 +134,7 @@ In execution order:
 9. `agent/planner.py` — `Planner.next_step()` skeleton
 10. `agent/finder.py` — rule protocol
 11. `agent/runner.py` — engagement loop skeleton
-12. `agent/cli.py` — `lolmcp run|doctor|report|replay`
+12. `agent/cli.py` — `openrecon run|doctor|report|replay`
 13. `api/base.py` + each module as a stub with a `TODO` body and a working CLI
 14. `frida_layer/runner.py`, `frida_layer/auto_hook.py`, hook JS placeholders
 15. `objection_layer/runner.py` + script placeholders
@@ -145,7 +146,7 @@ In execution order:
 
 | Milestone | Exit criterion | Effort estimate |
 |---|---|---|
-| M1: Phase 1 done | `lolmcp doctor` runs | 1 commit |
+| M1: Phase 1 done | `openrecon doctor` runs | 1 commit |
 | M2: Phase 2 done | Frida events stream from a real device | 2–3 days work |
 | M3: Phase 3 done | MITM flows stream via the vendored MCP | 1–2 days |
 | M4: Phase 4 done | Correlations cover ≥80% of flows on test app | 2–3 days |
