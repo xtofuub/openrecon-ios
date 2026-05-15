@@ -19,7 +19,6 @@ import math
 import re
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Iterable
 
 from .schema import Correlation, CorrelationSignal, FridaEvent, MitmFlow
 from .store import EventStore

@@ -14,7 +14,6 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from .owasp_mapping import annotate_finding, owasp_for_category
 from .schema import Finding
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = REPO_ROOT / "templates"
 

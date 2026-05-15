@@ -17,7 +17,7 @@ from . import finder
 from .correlate import Correlator
 from .planner import Planner
 from .query import RunQuery
-from .schema import EngagementState, FridaEvent, MitmFlow
+from .schema import EngagementState
 from .state import bootstrap_state, save_state
 from .steps import ExecContext
 from .store import EventStore

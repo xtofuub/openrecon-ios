@@ -27,7 +27,6 @@ from .base import (
     response_diff,
 )
 
-
 _INTERESTING_RESPONSE_KEYS = (
     "email",
     "username",

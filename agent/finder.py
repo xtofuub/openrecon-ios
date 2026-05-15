@@ -166,7 +166,10 @@ class EndpointWithoutAuthRule:
                     run_id=state.run_id,
                     severity=Severity.LOW,
                     category="auth-mechanism",
-                    title=f"Endpoint serves 2xx without any observed auth header — {group.method} {group.host}{group.path_template}",
+                    title=(
+                        f"Endpoint serves 2xx without any observed auth header — "
+                        f"{group.method} {group.host}{group.path_template}"
+                    ),
                     summary=(
                         f"{sum(group.status_counts.values())} flows observed; "
                         f"no Authorization / Cookie / API-Key headers on any of them."
@@ -196,8 +199,9 @@ class ClientSideValidationBypassRule:
         flows = list(q.flows())
         baseline_by_endpoint: dict[tuple[str, str, str], list[dict]] = {}
         replays_by_endpoint: dict[tuple[str, str, str], list[dict]] = {}
-        from .endpoint_map import template_path
         from urllib.parse import urlparse
+
+        from .endpoint_map import template_path
 
         for flow in flows:
             req = flow.get("request") or {}

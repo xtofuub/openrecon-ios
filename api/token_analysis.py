@@ -7,8 +7,6 @@ import json
 import time
 from typing import Any
 
-import jwt as pyjwt
-
 from agent.schema import (
     Evidence,
     Finding,

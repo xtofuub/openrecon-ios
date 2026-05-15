@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import time
 
-from agent.correlate import Correlator, CorrelationConfig
+from agent.correlate import CorrelationConfig, Correlator
 from agent.schema import ArgValue, FridaEvent
 from agent.store import EventStore
 

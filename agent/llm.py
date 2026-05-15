@@ -83,7 +83,7 @@ class LlmStepProposer:
         self._client = self._make_client()
 
     @classmethod
-    def from_env(cls, *, model: str = DEFAULT_MODEL) -> "LlmStepProposer":
+    def from_env(cls, *, model: str = DEFAULT_MODEL) -> LlmStepProposer:
         return cls(api_key=os.environ.get("ANTHROPIC_API_KEY"), model=model)
 
     @property
@@ -100,7 +100,7 @@ class LlmStepProposer:
             return None
         return anthropic.Anthropic(api_key=self.api_key)
 
-    def propose(self, state: "EngagementState", query: "RunQuery") -> Step | None:
+    def propose(self, state: EngagementState, query: RunQuery) -> Step | None:
         if not self.enabled:
             return None
         try:
@@ -118,7 +118,7 @@ class LlmStepProposer:
             log.warning("llm.propose_failed", error=str(exc))
             return None
 
-    def _build_context(self, state: "EngagementState", query: "RunQuery") -> str:
+    def _build_context(self, state: EngagementState, query: RunQuery) -> str:
         flows = list(query.flows())
         findings = query.findings()
         ctx = {

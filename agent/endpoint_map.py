@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 _OPAQUE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{16,}$")
 

@@ -34,7 +34,7 @@ class FridaRunner:
         self._queue: asyncio.Queue[FridaEvent] = asyncio.Queue()
 
     @classmethod
-    def from_state(cls, state: EngagementState) -> "FridaRunner":
+    def from_state(cls, state: EngagementState) -> FridaRunner:
         return cls(bundle_id=state.target.bundle_id, device_id=state.target.device_id)
 
     async def spawn_and_attach(self) -> None:
@@ -92,7 +92,7 @@ class FridaRunner:
         while True:
             try:
                 ev = await asyncio.wait_for(self._queue.get(), timeout=0.5)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if self._session is None:
                     return
                 continue

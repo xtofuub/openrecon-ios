@@ -20,7 +20,7 @@ def test_summarize_with_state_and_events(event_store, mitm_flow_factory, frida_e
     # Seed events.
     for i in range(3):
         event_store.append("mitm_flows", mitm_flow_factory(flow_id=f"f{i}"))
-    for i in range(5):
+    for _ in range(5):
         event_store.append("frida_events", frida_event_factory())
     # Seed state.
     state = {

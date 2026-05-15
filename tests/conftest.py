@@ -36,7 +36,6 @@ from agent.schema import (  # noqa: E402  (import after sys.path tweak)
 )
 from agent.store import EventStore  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Synthetic event factories
 # ---------------------------------------------------------------------------

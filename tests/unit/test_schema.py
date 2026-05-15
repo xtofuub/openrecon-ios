@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 
 import pytest
@@ -23,8 +22,8 @@ from agent.schema import (
     ModuleResult,
     Phase,
     ReproStep,
-    Severity,
     SessionCreds,
+    Severity,
     StepRecord,
     TargetMeta,
 )

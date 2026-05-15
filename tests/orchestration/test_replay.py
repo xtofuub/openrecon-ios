@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import json
 from pathlib import Path
 
 import pytest
@@ -17,7 +16,7 @@ from agent.replay import (
     render_report,
     replay_finding,
 )
-from agent.schema import Evidence, Finding, ReproStep, Severity
+from agent.schema import Finding, ReproStep, Severity
 
 
 def _seed(run_dir: Path, findings: list[Finding]) -> None:

@@ -7,9 +7,9 @@ import json
 
 import pytest
 
+from agent.schema import SessionCreds, Severity
 from api.base import identify_id_positions
 from api.idor import IdorModule, ModuleInput
-from agent.schema import SessionCreds, Severity
 
 
 @pytest.mark.asyncio

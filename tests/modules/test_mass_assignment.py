@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from api.mass_assignment import MassAssignmentModule, ModuleInput
 from agent.schema import Severity
+from api.mass_assignment import MassAssignmentModule, ModuleInput
 
 
 def _post_flow(flow_id: str, url: str, body: dict) -> dict:

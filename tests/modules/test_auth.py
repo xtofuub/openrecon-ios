@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from api.auth import AuthModule, ModuleInput
 from agent.schema import SessionCreds, Severity
+from api.auth import AuthModule, ModuleInput
 
 
 def _unsigned_jwt() -> str:

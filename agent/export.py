@@ -21,7 +21,6 @@ from pathlib import Path
 
 from .runs import summarize_run
 
-
 _EXCLUDE_PATTERNS = ("index", "__pycache__")
 _EXCLUDE_SUFFIXES = (".sqlite", ".sqlite-wal", ".sqlite-shm", ".pyc")
 

@@ -47,7 +47,7 @@ class ObjectionRunner:
         self.device_id = device_id
 
     @classmethod
-    def from_state(cls, state: EngagementState) -> "ObjectionRunner":
+    def from_state(cls, state: EngagementState) -> ObjectionRunner:
         return cls(bundle_id=state.target.bundle_id, device_id=state.target.device_id)
 
     def run_script(self, script: str) -> ObjectionResult:

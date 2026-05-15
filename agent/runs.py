@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -35,7 +35,7 @@ class RunSummary:
             "bundle_id": self.bundle_id,
             "phase": self.phase,
             "started_at": (
-                datetime.fromtimestamp(self.started_at, tz=timezone.utc).isoformat()
+                datetime.fromtimestamp(self.started_at, tz=UTC).isoformat()
                 if self.started_at
                 else None
             ),

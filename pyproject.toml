@@ -49,13 +49,30 @@ build-backend = "hatchling.build"
 packages = ["agent", "api", "frida_layer", "objection_layer", "mitm"]
 
 [tool.ruff]
-line-length = 100
+line-length = 130
 target-version = "py312"
 extend-exclude = ["mitm/vendor", "skills/_upstream"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "S"]
-ignore = ["S101"]
+ignore = [
+    "S101",   # assert
+    "S110",   # try-except-pass: intentional in best-effort decode paths
+    "S112",   # try-except-continue: ditto
+    "S603",   # subprocess call: required by objection_layer
+    "S607",   # subprocess partial path: PATH lookup is fine for tools we shell out to
+    "SIM102",   # nested if: prefer readable over collapsed
+    "SIM103",   # condition return: prefer explicit
+    "SIM105",   # contextlib.suppress: try-except-pass is fine
+    "UP042",    # str+Enum: keep StrEnum migration optional
+    "ASYNC240", # Path methods in async: acceptable for short CLI shims
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests and fixtures need broad latitude: long fixture data, try/except/pass
+# for intentional skip paths, subprocess invocations in fake MCP servers.
+"tests/**/*.py" = ["S110", "S112", "S603", "S607", "S108", "E501"]
+"tests/fixtures/*.py" = ["S110", "S112", "S603", "S607", "S108", "E501", "F401"]
 
 [tool.mypy]
 python_version = "3.12"

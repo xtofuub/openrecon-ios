@@ -12,9 +12,9 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from .schema import StepRecord
 
@@ -26,9 +26,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class ExecContext:
-    state: "EngagementState"
-    store: "EventStore"
-    query: "RunQuery"
+    state: EngagementState
+    store: EventStore
+    query: RunQuery
     extras: dict[str, Any] = field(default_factory=dict)
 
 

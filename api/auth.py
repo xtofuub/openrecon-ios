@@ -16,7 +16,6 @@ from agent.schema import (
 
 from .base import ApiModule, ModuleInput, cli_entry, response_diff
 
-
 _AUTH_HEADERS = ("authorization", "cookie", "x-api-key", "x-auth-token", "x-session-token")
 
 

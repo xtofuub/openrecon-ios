@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Final
 
-
 # 2024 OWASP Mobile Top 10
 M01 = ("M1", "Improper Credential Usage")
 M02 = ("M2", "Inadequate Supply Chain Security")

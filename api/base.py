@@ -9,21 +9,22 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
+from urllib.parse import urlparse
 
 import click
-from pydantic import BaseModel
 
 from agent.schema import (
     Artifact,
     Finding,
     ModuleCoverage,
     ModuleResult,
-    Severity,
     SessionCreds,
+    Severity,
 )
 
 
@@ -38,7 +39,7 @@ class ModuleInput:
     run_dir: Path
     baseline_flow_ids: list[str]
     session_pool: dict[str, SessionCreds]
-    mitm_mcp: "MitmClientLike"
+    mitm_mcp: MitmClientLike
     config: dict[str, Any]
 
 
@@ -73,9 +74,6 @@ class ApiModule(ABC):
 # Identifier heuristics — used by api/idor, api/mass_assignment, others.
 # ---------------------------------------------------------------------------
 
-
-import re
-from urllib.parse import urlparse
 
 _ID_KEY_RE = re.compile(r"(^|_)(id|uid|guid|owner|tenant|org|account)(_|$)", re.IGNORECASE)
 _UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")

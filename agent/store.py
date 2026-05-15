@@ -61,9 +61,8 @@ class EventStore:
             raise KeyError(f"unknown stream {stream!r}")
         path = self.run_dir / self.JSONL_FILES[stream]
         line = record.model_dump_json() if isinstance(record, BaseModel) else json.dumps(record)
-        with self._locks[stream]:
-            with path.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
+        with self._locks[stream], path.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
         self._index_record(stream, record)
 
     def append_many(self, stream: str, records: Iterable[BaseModel | dict[str, Any]]) -> None:

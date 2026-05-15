@@ -17,7 +17,6 @@ from agent.schema import (
 
 from .base import ApiModule, ModuleInput, cli_entry
 
-
 _INTROSPECTION_QUERY = """
 query IntrospectionQuery {
   __schema {

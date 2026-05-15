@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
-
 from agent.llm import LlmStepProposer
 from agent.planner import Planner
 from agent.query import RunQuery

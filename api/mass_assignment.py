@@ -18,7 +18,6 @@ from agent.schema import (
 
 from .base import ApiModule, ModuleInput, cli_entry
 
-
 _HIDDEN_CANDIDATES = {
     "is_admin": True,
     "isAdmin": True,

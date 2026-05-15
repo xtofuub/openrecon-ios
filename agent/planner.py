@@ -15,7 +15,6 @@ from .steps import (  # noqa: I001  (keep import order stable)
     CorrelateRange,
     DetectAuthPattern,
     EnvironmentCheck,
-    GenerateReport,
     InstallHook,
     LaunchTarget,
     MapEndpoints,
@@ -60,11 +59,11 @@ class Planner:
 
     def __init__(
         self,
-        state: "EngagementState",
-        query: "RunQuery",
+        state: EngagementState,
+        query: RunQuery,
         *,
         modules: tuple[str, ...] = _DEFAULT_MODULE_ORDER,
-        llm: "LlmStepProposer | None" = None,
+        llm: LlmStepProposer | None = None,
         enable_llm: bool = False,
     ) -> None:
         self.state = state
