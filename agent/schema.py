@@ -146,7 +146,7 @@ class SessionCreds(BaseModel):
 
 
 class ReproStep(BaseModel):
-    """One reproducible step a reader (or `lolmcp replay`) can re-execute."""
+    """One reproducible step a reader (or `openrecon replay`) can re-execute."""
 
     description: str
     primitive: str  # e.g. "replay_flow"

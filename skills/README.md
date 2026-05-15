@@ -4,7 +4,7 @@ This directory is the knowledge layer Claude Code loads for iOS security work.
 
 | Path | Purpose |
 |---|---|
-| `ios-security-research/SKILL.md` | Top-level orchestrator. Triggers on iOS engagement language. Tells Claude how to drive `lolmcp`. |
+| `ios-security-research/SKILL.md` | Top-level orchestrator. Triggers on iOS engagement language. Tells Claude how to drive `openrecon`. |
 | `reverse-engineering-ios-app-with-frida/SKILL.md` | Thin wrapper around the upstream Anthropic Frida skill. |
 | `analyzing-ios-app-security-with-objection/SKILL.md` | Thin wrapper around the upstream Anthropic Objection skill. |
 | `_upstream/anthropic-cybersecurity-skills/` | Vendored upstream skills (git subtree from mukul975/Anthropic-Cybersecurity-Skills). Do not edit in place. |

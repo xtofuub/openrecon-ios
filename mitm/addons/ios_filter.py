@@ -1,6 +1,6 @@
 """mitmproxy addon — drop common iOS telemetry hosts.
 
-Pass `--set lolmcp_ios_strict=1` to disable filtering.
+Pass `--set openrecon_ios_strict=1` to disable filtering.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ _APPLE_TELEMETRY_PATHS = (
 
 class IosFilter:
     def request(self, flow: http.HTTPFlow) -> None:
-        if os.environ.get("LOLMCP_IOS_STRICT") == "1":
+        if os.environ.get("openrecon_IOS_STRICT") == "1":
             return
         host = flow.request.pretty_host
         for suffix in _TELEMETRY_HOST_SUFFIXES:

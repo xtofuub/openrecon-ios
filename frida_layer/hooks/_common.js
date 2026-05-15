@@ -1,7 +1,7 @@
 // Shared helpers loaded by every hook via `eval(readFile(...))` or copy-paste.
 // Frida JS has no module system, so we keep this small.
 
-function lolmcpEmit(event) {
+function openreconEmit(event) {
   send({
     kind: 'frida.event',
     ts: Date.now() / 1000,
@@ -17,7 +17,7 @@ function lolmcpEmit(event) {
   });
 }
 
-function lolmcpPreview(value, maxLen) {
+function openreconPreview(value, maxLen) {
   maxLen = maxLen || 256;
   try {
     if (value === null || value === undefined) return null;
@@ -32,7 +32,7 @@ function lolmcpPreview(value, maxLen) {
   }
 }
 
-function lolmcpHash(value) {
+function openreconHash(value) {
   // SHA-256 via NSData → CommonCrypto. Returns hex.
   try {
     var bytes;
@@ -50,7 +50,7 @@ function lolmcpHash(value) {
   }
 }
 
-function lolmcpStack(threshold) {
+function openreconStack(threshold) {
   threshold = threshold || 32;
   try {
     var bt = Thread.backtrace(this.context, Backtracer.ACCURATE)

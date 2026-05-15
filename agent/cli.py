@@ -1,4 +1,4 @@
-"""`lolmcp` CLI entrypoint.
+"""`openrecon` CLI entrypoint.
 
 Subcommands:
     run        — start an autonomous engagement

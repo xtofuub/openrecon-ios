@@ -1,7 +1,7 @@
 """mitmproxy addon — emit one MitmFlow JSONL line per captured flow.
 
 Drop in via `mitmdump -s mitm/addons/correlation_emitter.py`. The addon writes
-to `$LOLMCP_RUN_DIR/mitm_flows.jsonl` so the correlator can ingest live.
+to `$openrecon_RUN_DIR/mitm_flows.jsonl` so the correlator can ingest live.
 
 This file is loaded by mitmproxy's interpreter, not by our Python entrypoint.
 Keep imports minimal so the addon stays fast and dependency-light.
@@ -24,7 +24,7 @@ log = structlog.get_logger(__name__)
 
 class CorrelationEmitter:
     def __init__(self) -> None:
-        run_dir = Path(os.environ.get("LOLMCP_RUN_DIR", "runs/_default"))
+        run_dir = Path(os.environ.get("openrecon_RUN_DIR", "runs/_default"))
         run_dir.mkdir(parents=True, exist_ok=True)
         self.path = run_dir / "mitm_flows.jsonl"
 

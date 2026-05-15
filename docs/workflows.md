@@ -115,7 +115,7 @@ Modules can return early hypotheses ("this might be exploitable but I need a con
 | 3 | `BundleEvidence` | copy referenced flows to `evidence/` for portability |
 | 4 | `ValidateSchema` | run `findings/*.json` through `templates/finding.schema.json` |
 
-**Exit:** engagement complete. Operator can `lolmcp report <run_id> --open` to view.
+**Exit:** engagement complete. Operator can `openrecon report <run_id> --open` to view.
 
 ---
 
@@ -123,19 +123,19 @@ Modules can return early hypotheses ("this might be exploitable but I need a con
 
 These are invocable independently when the operator wants targeted action.
 
-### `lolmcp inspect-class <bundle_id> <class>`
+### `openrecon inspect-class <bundle_id> <class>`
 Wraps `objection ios hooking watch class`. Output to stdout + JSONL.
 
-### `lolmcp replay <flow_id> [--mutate <strategy>]`
+### `openrecon replay <flow_id> [--mutate <strategy>]`
 Single-shot mutation + replay. Useful for manual testing during research.
 
-### `lolmcp recon <bundle_id>`
+### `openrecon recon <bundle_id>`
 Runs the Bootstrap + Mapping workflows and stops. Output: an OpenAPI-ish spec + endpoint table.
 
-### `lolmcp report <run_id>`
+### `openrecon report <run_id>`
 Re-render an existing run's findings (idempotent, useful after editing templates).
 
-### `lolmcp correlate <run_id>`
+### `openrecon correlate <run_id>`
 Re-run correlation over an existing run's JSONL files. Useful when tuning weights.
 
 ---

@@ -54,8 +54,8 @@ runs/<run_id>/
 
 User says: "Test the iOS app `com.example.foo` for IDORs."
 
-1. Confirm device connectivity via `lolmcp doctor` (or `agent.cli.doctor()`).
-2. Launch engagement: `lolmcp run --target com.example.foo` → kicks off `agent/runner.py` which starts Frida + MITM.
+1. Confirm device connectivity via `openrecon doctor` (or `agent.cli.doctor()`).
+2. Launch engagement: `openrecon run --target com.example.foo` → kicks off `agent/runner.py` which starts Frida + MITM.
 3. Wait for the planner to enter `mapping` phase (≥50 flows seen, auth pattern detected).
 4. Run `api.idor` against the highest-value endpoints (those returning user-scoped data).
 5. Read findings from `runs/<run_id>/findings/`, summarize them, link to evidence by flow_id.

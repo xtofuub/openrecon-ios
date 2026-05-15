@@ -1,6 +1,6 @@
 ---
 name: ios-security-research
-description: Autonomous iOS security research workflow. Triggers on iOS bug-bounty, mobile pentest, app reverse-engineering, API testing, IDOR, auth bypass, mass assignment, GraphQL probing, JWT analysis, runtime hook, Frida, Objection, mitmproxy, HTTPS proxy, or similar requests. Orchestrates the planner, modules, and reports of this repo (lolmcp). Use when the user asks to inspect an iOS app, test its API, or run an end-to-end mobile security engagement.
+description: Autonomous iOS security research workflow. Triggers on iOS bug-bounty, mobile pentest, app reverse-engineering, API testing, IDOR, auth bypass, mass assignment, GraphQL probing, JWT analysis, runtime hook, Frida, Objection, mitmproxy, HTTPS proxy, or similar requests. Orchestrates the planner, modules, and reports of this repo (openrecon). Use when the user asks to inspect an iOS app, test its API, or run an end-to-end mobile security engagement.
 ---
 
 # iOS Security Research — Orchestrator Skill
@@ -26,7 +26,7 @@ When the user describes an engagement, do this:
 ### Step 1 — confirm environment
 
 ```
-lolmcp doctor
+openrecon doctor
 ```
 
 If anything fails: read `docs/roadmap.md` and follow the setup steps. Do not proceed until the doctor is clean.
@@ -34,7 +34,7 @@ If anything fails: read `docs/roadmap.md` and follow the setup steps. Do not pro
 ### Step 2 — start the engagement
 
 ```
-lolmcp run --target <bundle_id> --device <usb|id> --budget 1800
+openrecon run --target <bundle_id> --device <usb|id> --budget 1800
 ```
 
 This calls `agent.runner.run_engagement`, which:
@@ -53,13 +53,13 @@ ls runs/<run_id>/findings/
 cat runs/<run_id>/report.md
 ```
 
-Summarize the findings for the user. Link to each finding's Markdown file. Group by severity. Quote a representative flow_id per finding so the user can `lolmcp replay <finding_id>` to confirm.
+Summarize the findings for the user. Link to each finding's Markdown file. Group by severity. Quote a representative flow_id per finding so the user can `openrecon replay <finding_id>` to confirm.
 
 ### Step 4 — drill in if needed
 
 If the user wants to investigate a specific finding or endpoint:
 
-- `lolmcp correlate <run_id>` — recompute correlations after tuning.
+- `openrecon correlate <run_id>` — recompute correlations after tuning.
 - `python -m api.idor --run-dir runs/<run_id> --baseline <flow_id>` — re-run a module on its own.
 - Open the relevant Frida hook in `frida_layer/hooks/<hook>.js` and modify it; restart the engagement.
 
@@ -74,7 +74,7 @@ If the user wants to investigate a specific finding or endpoint:
 
 | User says | You do |
 |---|---|
-| "Test this iOS app for IDORs" | `lolmcp run` with budget, then once mapping is done, `python -m api.idor --run-dir runs/<id> --baseline <flow_ids>` |
+| "Test this iOS app for IDORs" | `openrecon run` with budget, then once mapping is done, `python -m api.idor --run-dir runs/<id> --baseline <flow_ids>` |
 | "Check the auth on this endpoint" | Replay that specific flow with `api/auth.py` |
 | "Decrypt the request body" | Look at `commoncrypto_tracer.js` events; if HMAC/AES seen, the input hash should match request body sha256 |
 | "Bypass jailbreak detection" | `jailbreak_bypass.js` is loaded by default; if app still detects, look at `objection ios jailbreak disable` for the broader pattern set |

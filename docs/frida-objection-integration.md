@@ -127,7 +127,7 @@ The planner chooses based on `state.phase`:
 
 | Failure | Detection | Recovery |
 |---|---|---|
-| `frida-server` not running on device | `frida.get_usb_device().enumerate_processes()` raises | `lolmcp doctor` prints install instructions; planner aborts engagement |
+| `frida-server` not running on device | `frida.get_usb_device().enumerate_processes()` raises | `openrecon doctor` prints install instructions; planner aborts engagement |
 | Target crashes on attach | session detached signal | retry with `--no-spawn` (attach to running instance) or with `gating=False` |
 | Hook script error | `message.type == "error"` in Frida message pump | log to `runs/<id>/errors.jsonl`, continue without that hook |
 | Objection command times out | subprocess wall-time exceeds 30s | mark script as failed in artifacts, continue with next |

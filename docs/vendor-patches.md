@@ -12,7 +12,7 @@ _None applied yet. The list below tracks gaps we know about; patch them on a sep
 
 | Issue | Location | Status | Action |
 |---|---|---|---|
-| Path traversal in `load_traffic_file` | `src/mitmproxy_mcp/core/server.py:390` (was line 324 in earlier versions) | **Not patched.** `file_path` is passed straight to `recorder.db.import_from_file`. Whether the recorder layer sanitizes it needs verification. | Audit `recorder.import_from_file`. If unsanitized, add `pathlib.Path(file_path).resolve()` check against `$LOLMCP_RUN_DIR` before calling. |
+| Path traversal in `load_traffic_file` | `src/mitmproxy_mcp/core/server.py:390` (was line 324 in earlier versions) | **Not patched.** `file_path` is passed straight to `recorder.db.import_from_file`. Whether the recorder layer sanitizes it needs verification. | Audit `recorder.import_from_file`. If unsanitized, add `pathlib.Path(file_path).resolve()` check against `$openrecon_RUN_DIR` before calling. |
 | iOS-specific CA installation | none | upstream doesn't help | Add `ios_install_ca` tool in `mitm/addons/` (planned, Phase 3) |
 | WiFi proxy config push | none | upstream doesn't help | Add `ios_set_wifi_proxy` tool via libimobiledevice (planned) |
 
@@ -48,4 +48,4 @@ git subtree pull --prefix=skills/_upstream/anthropic-cybersecurity-skills \
 
 After pull:
 1. Re-read `skills/reverse-engineering-ios-app-with-frida/SKILL.md` and `skills/analyzing-ios-app-security-with-objection/SKILL.md` to confirm referenced paths still resolve.
-2. Run `lolmcp doctor` — it includes a vendored-skill presence check.
+2. Run `openrecon doctor` — it includes a vendored-skill presence check.

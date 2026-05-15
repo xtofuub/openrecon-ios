@@ -56,18 +56,18 @@ Why not SSE / Streamable HTTP? stdio is what Claude Code defaults to and what th
 ```json
 {
   "mcpServers": {
-    "lolmcp-mitm": {
+    "openrecon-mitm": {
       "command": "python",
       "args": ["-m", "mitm.vendor.src.mitmproxy_mcp", "--addons", "mitm/addons/correlation_emitter.py", "mitm/addons/ios_filter.py"],
       "env": {
-        "LOLMCP_RUN_DIR": "${LOLMCP_RUN_DIR:-runs/_default}"
+        "openrecon_RUN_DIR": "${openrecon_RUN_DIR:-runs/_default}"
       }
     }
   }
 }
 ```
 
-The `LOLMCP_RUN_DIR` env var tells our addons where to append JSONL. The runner sets it per engagement.
+The `openrecon_RUN_DIR` env var tells our addons where to append JSONL. The runner sets it per engagement.
 
 ## Patches we carry
 
@@ -83,7 +83,7 @@ Tracked in `docs/vendor-patches.md`. After every `git subtree pull`, the operato
 # mitm/vendor/src/mitmproxy_mcp/core/server.py:324
 def load_traffic_file(file_path: str) -> ...:
     p = pathlib.Path(file_path).resolve()
-    allowed_root = pathlib.Path(os.environ.get("LOLMCP_RUN_DIR", ".")).resolve()
+    allowed_root = pathlib.Path(os.environ.get("openrecon_RUN_DIR", ".")).resolve()
     if allowed_root not in p.parents and p != allowed_root:
         raise ValueError(f"path {p} outside allowed root {allowed_root}")
     ...

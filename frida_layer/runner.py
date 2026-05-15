@@ -118,7 +118,7 @@ class FridaRunner:
 
 
 def probe_device(device_id: str | None = None) -> bool:
-    """Used by `lolmcp doctor` to verify connectivity."""
+    """Used by `openrecon doctor` to verify connectivity."""
     try:
         import frida
 

@@ -1,6 +1,6 @@
 """Render findings to Markdown + JSON using Jinja2 templates.
 
-Idempotent — `lolmcp report <run_id>` re-runs this without rebuilding state.
+Idempotent — `openrecon report <run_id>` re-runs this without rebuilding state.
 Validates each Finding JSON against `templates/finding.schema.json`.
 """
 

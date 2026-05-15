@@ -191,7 +191,7 @@ class Correlator:
     # ------------------------------------------------------------ batch helper
 
     def replay_from_store(self) -> list[Correlation]:
-        """Recompute all correlations from JSONL. Used by `lolmcp correlate`."""
+        """Recompute all correlations from JSONL. Used by `openrecon correlate`."""
         self._frida_by_ts.clear()
         self._frida_ts_keys.clear()
         self._frida_by_thread.clear()

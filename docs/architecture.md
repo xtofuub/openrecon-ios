@@ -4,7 +4,7 @@
 
 iOS bug-bounty work today means juggling four tools by hand: Frida for runtime hooks, Objection for fast recon, a proxy (Burp / mitmproxy) for HTTPS, and ad-hoc scripts to test IDOR / auth / mass assignment. The hand-stitching is the bottleneck — by the time you've correlated "method X produced request Y," you've lost ten minutes per endpoint.
 
-`lolmcp` collapses the loop. Claude Code drives one autonomous pipeline that hooks the app, captures the traffic, correlates the two, and tests common API bug classes — emitting structured findings the operator can review or hand to a write-up.
+`openrecon` collapses the loop. Claude Code drives one autonomous pipeline that hooks the app, captures the traffic, correlates the two, and tests common API bug classes — emitting structured findings the operator can review or hand to a write-up.
 
 ## Design constraints
 
@@ -58,7 +58,7 @@ iOS bug-bounty work today means juggling four tools by hand: Frida for runtime h
 - `planner.py` — rule-based decision loop with LLM fallback for novel steps.
 - `finder.py` — pattern rules that emit `Finding`s from correlations.
 - `runner.py` — the async engagement loop.
-- `cli.py` — `lolmcp run|doctor|report|replay`.
+- `cli.py` — `openrecon run|doctor|report|replay`.
 
 ### `frida_layer/` — runtime hooking
 - `hooks/` — JS hook library (one file per concern: `url_session_tracer.js`, `ssl_pinning_bypass.js`, `keychain_dump.js`, `jailbreak_bypass.js`, `commoncrypto_tracer.js`, `cffi_arg_tracer.js`).
@@ -94,7 +94,7 @@ iOS bug-bounty work today means juggling four tools by hand: Frida for runtime h
 ## Data flow (a single engagement)
 
 ```
-operator: lolmcp run --target com.example.foo --device usb
+operator: openrecon run --target com.example.foo --device usb
      │
      ▼
 agent/runner.py

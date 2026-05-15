@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lolmcp.local/schemas/finding.json",
+  "$id": "https://openrecon.local/schemas/finding.json",
   "title": "Finding",
   "type": "object",
   "required": ["finding_id", "run_id", "severity", "category", "title", "summary"],

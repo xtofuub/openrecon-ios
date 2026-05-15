@@ -1,7 +1,7 @@
 # Optional engagement description — not enforced by the platform, just a record.
 #
 # Save as `engagement.yaml` in the repo root or pass via `--engagement` to
-# `lolmcp run`. Useful for documenting scope, contacts, and credentials when
+# `openrecon run`. Useful for documenting scope, contacts, and credentials when
 # you come back to a run weeks later.
 
 target:

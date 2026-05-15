@@ -1,5 +1,5 @@
 [project]
-name = "lolmcp"
+name = "openrecon"
 version = "0.1.0"
 description = "Autonomous iOS security research platform fusing Frida, Objection, and MITMProxy MCP."
 readme = "README.md"
@@ -37,7 +37,7 @@ dev = [
 ]
 
 [project.scripts]
-lolmcp = "agent.cli:main"
+openrecon = "agent.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
