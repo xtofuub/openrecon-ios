@@ -141,6 +141,36 @@ def export(run_id: str, runs_root: str, out: str | None) -> None:
 
 
 @main.command()
+@click.argument("run_a")
+@click.argument("run_b")
+@click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
+@click.option("--json", "as_json", is_flag=True, help="Emit JSON instead of Markdown.")
+@click.option("--write", "write_report", is_flag=True, help="Write diff_<a>_<b>.md to disk.")
+def diff(run_a: str, run_b: str, runs_root: str, as_json: bool, write_report: bool) -> None:
+    """Compare two engagements — new/resolved findings, endpoint coverage delta."""
+    import json as _json
+
+    from .diff import diff_runs, render_diff
+
+    root = Path(runs_root)
+    a = root / run_a
+    b = root / run_b
+    for d in (a, b):
+        if not d.exists():
+            click.echo(f"no run at {d}", err=True)
+            sys.exit(2)
+    result = diff_runs(a, b)
+    if as_json:
+        click.echo(_json.dumps(result.as_dict(), indent=2, default=str))
+    else:
+        click.echo(render_diff(result))
+    if write_report:
+        out = root / f"diff_{run_a}_{run_b}.md"
+        out.write_text(render_diff(result), encoding="utf-8")
+        click.echo(f"wrote {out}", err=True)
+
+
+@main.command()
 @click.argument("finding_id")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
 @click.option("--write", "write_report", is_flag=True, help="Write replay_<id>.md next to the finding.")
