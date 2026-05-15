@@ -107,7 +107,8 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [x] `agent/steps.py` — `Step` base + `EnvironmentCheck`, `LaunchTarget`, `InstallHook`, `ObjectionRecon`, `ObservePassive`, `MapEndpoints`, `DetectAuthPattern`, `CorrelateRange`, `RunModule`, `GenerateReport`, `RenderFindings`.
 - [x] `agent/planner.py` — rule-driven phase machine (bootstrap → passive → mapping → active → exploit → report) with deterministic transitions.
 - [x] `agent/llm.py` — optional Anthropic SDK fallback. Off by default; opt-in via `ANTHROPIC_API_KEY` or `Planner(enable_llm=True)`. Parses JSON action proposals into typed Steps. Safe no-op when SDK or key is missing.
-- [x] `agent/finder.py` — pattern rules (`AuthHeaderInferenceRule`, `HookedCryptoAsSignatureRule`, `CrossTenantLeakRule`) with dedupe by `(category, sorted(flows))`.
+- [x] `agent/finder.py` — pattern rules (`AuthHeaderInferenceRule`, `HookedCryptoAsSignatureRule`, `CrossTenantLeakRule`, `EndpointWithoutAuthRule`, `ClientSideValidationBypassRule`) with dedupe by `(category, sorted(flows))`.
+- [x] `agent/endpoint_map.py` — `template_path()` canonicalizes URL paths (`/users/42` → `/users/{id}`); `group_flows()` buckets flows into deduplicated endpoint records.
 - [x] `agent/runner.py` — full async engagement loop with crash recovery via `state.json` snapshot after every step.
 - [x] `tests/orchestration/test_{planner,finder,llm}.py`.
 
@@ -123,9 +124,12 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 - [x] `templates/report.md.j2` — top-level TOC grouped by severity.
 - [x] `templates/finding.schema.json` — strict JSON schema. Validated in tests via `jsonschema`.
 - [x] `agent/reporter.py` — renders per-finding `.md` + `.json` and `report.{md,json}` index.
-- [x] `agent/cli.py` — `openrecon report <run_id>` collates findings, `openrecon replay <finding_id>` executes repro steps.
+- [x] `agent/cli.py` — `openrecon report <run_id>` collates findings, `openrecon replay <finding_id>` executes repro steps, `openrecon runs` lists engagements, `openrecon export <run_id>` produces a tar.gz bundle with MANIFEST.json (sha256 per file).
 - [x] `agent/replay.py` — walks `ReproStep` entries, classifies overall as reproduced / no-repro / partial / error.
-- [x] `tests/orchestration/test_{reporter,replay}.py`.
+- [x] `agent/runs.py` — engagement enumeration + per-run summaries.
+- [x] `agent/export.py` — shareable bundle export, SQLite indexes excluded (rebuildable).
+- [x] `agent/owasp_mapping.py` — OWASP Mobile Top 10 (2024) annotation. Reporter writes `owasp` field into per-finding JSON and renders an OWASP block in Markdown.
+- [x] `tests/orchestration/test_{reporter,replay}.py`, `tests/unit/test_{runs,export,owasp_mapping,endpoint_map}.py`.
 
 **Exit:** generated reports validate against the JSON schema and render correctly. ✅
 
@@ -136,8 +140,6 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 | Gap | Where | How to close |
 |---|---|---|
 | Hardware-side Frida validation | Phase 2 | Plug in jailbroken iOS device with `frida-server`, run `openrecon doctor` then `openrecon run --target <bundle_id>`. Iterate on hooks in `frida_layer/hooks/` until ≥100 events stream. |
-| Vendor path-traversal audit | Phase 3 | Audit `mitm/vendor/src/mitmproxy_mcp/core/server.py` `load_traffic_file` against client-side `run_dir` guard. Either confirm safe or add explicit `pathlib.Path.resolve()` check. |
-| OWASP Mobile Top 10 mapping helper | Phase 5+ | Optional. Add `agent/owasp_mapping.py` if needed for report templates. |
 | Real-device end-to-end smoke | Phase 2 + Phase 6 | Run against an intentionally vulnerable app (e.g. DVIA-v2). Confirm planner walks all phases and finds ≥1 real bug. |
 
 ## Test coverage
