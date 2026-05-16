@@ -371,113 +371,15 @@
 
   // ── Delegate callbacks ─────────────────────────────────────────────────────
   //
-  // Deferred via setImmediate — see url_session_body_tracer.js for the
-  // same rationale: a synchronous walk of every loaded class blocks
-  // script.load() past Frida's connection timeout.
-
-  setImmediate(function () {
-    try {
-  ObjC.enumerateLoadedClasses({}, {
-    onMatch: function (name) {
-      try {
-        var cls = ObjC.classes[name];
-        if (!cls) return;
-
-        var didReceiveResponse = cls['- connection:didReceiveResponse:'];
-        if (didReceiveResponse) {
-          Interceptor.attach(didReceiveResponse.implementation, {
-            onEnter: function (args) {
-              try {
-                var conn = new ObjC.Object(args[2]);
-                var resp = new ObjC.Object(args[3]);
-                var id = ptr2id(conn.handle);
-                if (!connMap[id]) {
-                  connMap[id] = { chunks: [], responseBytes: 0, responseTruncated: false, tsRequest: Date.now() / 1000 };
-                }
-                try {
-                  var httpResp = resp.castTo(ObjC.classes.NSHTTPURLResponse);
-                  connMap[id].status = httpResp.statusCode();
-                  connMap[id].responseHeaders = readResponseHeaders(httpResp);
-                } catch (_) {}
-                try {
-                  var req = conn.currentRequest ? conn.currentRequest() : null;
-                  if (req) {
-                    connMap[id].url = req.URL().absoluteString().toString();
-                    connMap[id].method = req.HTTPMethod ? req.HTTPMethod().toString() : 'GET';
-                    connMap[id].headers = readHeaders(req);
-                    var rb = readRequestBody(req);
-                    connMap[id].requestBytes = rb.bytes;
-                    connMap[id].requestTruncated = rb.truncated;
-                  }
-                } catch (_) {}
-              } catch (_) {}
-            }
-          });
-        }
-
-        var didReceiveData = cls['- connection:didReceiveData:'];
-        if (didReceiveData) {
-          Interceptor.attach(didReceiveData.implementation, {
-            onEnter: function (args) {
-              try {
-                var conn = new ObjC.Object(args[2]);
-                var data = new ObjC.Object(args[3]);
-                var id = ptr2id(conn.handle);
-                if (!connMap[id]) {
-                  connMap[id] = { chunks: [], responseBytes: 0, responseTruncated: false, tsRequest: Date.now() / 1000 };
-                }
-                if (connMap[id].responseTruncated) return;
-                var bytes = nsDataBytes(data);
-                if (!bytes) return;
-                if (connMap[id].responseBytes + bytes.byteLength > BODY_CAP) {
-                  connMap[id].responseTruncated = true;
-                  connMap[id].chunks = [];
-                  connMap[id].responseBytes = 0;
-                  return;
-                }
-                connMap[id].chunks.push(bytes);
-                connMap[id].responseBytes += bytes.byteLength;
-              } catch (_) {}
-            }
-          });
-        }
-
-        var didFinish = cls['- connectionDidFinishLoading:'];
-        if (didFinish) {
-          Interceptor.attach(didFinish.implementation, {
-            onEnter: function (args) {
-              try {
-                var conn = new ObjC.Object(args[2]);
-                var id = ptr2id(conn.handle);
-                var info = connMap[id];
-                if (!info) return;
-                var respBuf = concatChunks(info.chunks || []);
-                emitComplete(info, info.requestBytes, info.requestTruncated, respBuf, info.responseTruncated);
-                delete connMap[id];
-              } catch (_) {}
-            }
-          });
-        }
-
-        var didFail = cls['- connection:didFailWithError:'];
-        if (didFail) {
-          Interceptor.attach(didFail.implementation, {
-            onEnter: function (args) {
-              try {
-                var conn = new ObjC.Object(args[2]);
-                var id = ptr2id(conn.handle);
-                var info = connMap[id];
-                if (!info) return;
-                emitComplete(info, info.requestBytes, info.requestTruncated, null, info.responseTruncated);
-                delete connMap[id];
-              } catch (_) {}
-            }
-          });
-        }
-      } catch (_) {}
-    },
-    onComplete: function () {}
-  });
-    } catch (_) {}
-  });
+  // Originally we walked every loaded ObjC class via
+  // `ObjC.enumerateLoadedClasses` looking for NSURLConnectionDataDelegate
+  // conformers. On a real iOS process that walk starves the Frida JS runtime
+  // long enough for `script.load()` to time out, causing every subsequent
+  // hook to fail with "the connection is closed".
+  //
+  // The synchronous + async creation hooks above already capture the request
+  // and (for sync requests) the full response. Delegate-based async paths
+  // lose the response body, which is acceptable: NSURLConnection is the
+  // legacy API; modern apps overwhelmingly use NSURLSession (covered by
+  // `url_session_body_tracer.js`).
 })();

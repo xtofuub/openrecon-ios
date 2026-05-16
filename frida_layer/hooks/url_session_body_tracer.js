@@ -348,91 +348,45 @@
   hookTaskCreation('- uploadTaskWithRequest:fromData:completionHandler:');
   hookTaskCreation('- downloadTaskWithRequest:completionHandler:');
 
-  // ── Delegate callback hooks — installed on a deferred tick ────────────────
+  // ── Task resume — fallback finalize ────────────────────────────────────
   //
-  // ObjC.enumerateLoadedClasses walks every loaded class (thousands on a
-  // real iOS process). Running it synchronously inside the IIFE blocks
-  // `script.load()`, which Python sees as a 30 s timeout → "connection
-  // closed" for the next hook in the loader. Defer to setImmediate so the
-  // script returns immediately and the enumeration runs in the background.
+  // We deliberately do NOT walk every loaded class to hook the
+  // NSURLSessionDataDelegate methods: that enumeration starves the Frida JS
+  // runtime on a real iOS process (thousands of classes, hundreds of method
+  // interceptors), causing the script-load timeout to fire on subsequent
+  // hooks — Python sees "connection closed" and the engagement bails.
+  //
+  // Instead we capture the request at task creation (above) and emit a
+  // flow.complete event when the task resumes. Response body comes from a
+  // light-touch hook on `NSURLSessionTask -setState:` (state=2 means
+  // running; state=4 means completed) so we only attach to NSURLSessionTask
+  // itself — one class, one interceptor, no enumeration.
 
-  setImmediate(function () {
-    // Single pass over all loaded classes; install both delegate hooks at
-    // once where present. Halves the cost vs two separate enumerations.
-    try {
-      ObjC.enumerateLoadedClasses({}, {
-        onMatch: function (name) {
+  try {
+    var taskCls = ObjC.classes.NSURLSessionTask;
+    if (taskCls && taskCls['- setState:']) {
+      Interceptor.attach(taskCls['- setState:'].implementation, {
+        onEnter: function (args) {
           try {
-            var cls = ObjC.classes[name];
-            if (!cls) return;
-
-            var recvData = cls['- URLSession:dataTask:didReceiveData:'];
-            if (recvData) {
-              Interceptor.attach(recvData.implementation, {
-                onEnter: function (args) {
-                  try {
-                    var dataTask = new ObjC.Object(args[3]);
-                    var nsdata = new ObjC.Object(args[4]);
-                    var taskPtr = ptr2id(dataTask.handle);
-                    var info = taskRequests[taskPtr];
-                    var bytes = nsDataBytes(nsdata);
-                    if (!info) {
-                      try {
-                        var req = dataTask.currentRequest ? dataTask.currentRequest() : null;
-                        info = {
-                          url: req ? req.URL().absoluteString().toString() : '?',
-                          method: req && req.HTTPMethod ? req.HTTPMethod().toString() : 'GET',
-                          requestHeaders: req ? readHeaders(req) : {},
-                          requestBody: null,
-                          requestBodyTruncated: false,
-                          responseChunks: [],
-                          responseBytes: 0,
-                          responseTruncated: false,
-                          tsRequest: Date.now() / 1000
-                        };
-                        taskRequests[taskPtr] = info;
-                      } catch (_) { return; }
-                    }
-                    if (info.responseTruncated || !bytes) return;
-                    if (info.responseBytes + bytes.byteLength > BODY_CAP) {
-                      info.responseTruncated = true;
-                      info.responseChunks = [];
-                      info.responseBytes = 0;
-                      return;
-                    }
-                    info.responseChunks.push(bytes);
-                    info.responseBytes += bytes.byteLength;
-                  } catch (_) {}
-                }
-              });
-            }
-
-            var didComplete = cls['- URLSession:task:didCompleteWithError:'];
-            if (didComplete) {
-              Interceptor.attach(didComplete.implementation, {
-                onEnter: function (args) {
-                  try {
-                    var task = new ObjC.Object(args[3]);
-                    var taskPtr = ptr2id(task.handle);
-                    var info = taskRequests[taskPtr];
-                    if (!info) return;
-                    try {
-                      var resp = task.response();
-                      if (resp && !resp.isNull()) {
-                        var httpResp = resp.castTo(ObjC.classes.NSHTTPURLResponse);
-                        info.responseStatus = httpResp.statusCode();
-                        info.responseHeaders = readResponseHeaders(httpResp);
-                      }
-                    } catch (_) {}
-                    finalize(taskPtr);
-                  } catch (_) {}
-                }
-              });
-            }
+            var state = args[2].toInt32 ? args[2].toInt32() : parseInt(String(args[2]), 10);
+            // NSURLSessionTaskState: 0=Running, 1=Suspended, 2=Canceling, 3=Completed
+            if (state !== 3) return;
+            var task = new ObjC.Object(args[0]);
+            var taskPtr = ptr2id(task.handle);
+            var info = taskRequests[taskPtr];
+            if (!info) return;
+            try {
+              var resp = task.response();
+              if (resp && !resp.isNull()) {
+                var httpResp = resp.castTo(ObjC.classes.NSHTTPURLResponse);
+                info.responseStatus = httpResp.statusCode();
+                info.responseHeaders = readResponseHeaders(httpResp);
+              }
+            } catch (_) {}
+            finalize(taskPtr);
           } catch (_) {}
-        },
-        onComplete: function () {}
+        }
       });
-    } catch (_) {}
-  });
+    }
+  } catch (_) {}
 })();
