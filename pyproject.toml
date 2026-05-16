@@ -18,8 +18,11 @@ dependencies = [
     "aiofiles>=23.2,<25",
     "python-ulid>=2.2,<4",
     "PyJWT>=2.8,<3",
-    "frida>=16.5,<18",
-    "frida-tools>=13.0,<15",
+    # Range kept wide so operators can pin to whatever frida-server is on
+    # their device. e.g. iOS 16.1.4 + frida-server 16.1.x:
+    #   pip install -e . "frida==16.1.11" "frida-tools==12.4.2"
+    "frida>=16,<18",
+    "frida-tools>=12,<15",
     "objection>=1.11.0,<2",
     "mitmproxy>=12.0.0,<13",
     # Vendored mitmproxy-mcp transitive deps (mitm/vendor/src/mitmproxy_mcp).
