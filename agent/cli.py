@@ -27,14 +27,14 @@ def main() -> None:
 
 @main.command()
 @click.option("--target", required=True, help="Target bundle id, e.g. com.example.foo")
-@click.option("--device", default=None, help="Frida device id (defaults to first USB).")
+@click.option("--device", default=None, help="Frida device id (or 'usb' / 'local' / 'remote').")
 @click.option("--budget", default=1800, type=int, help="Wall-clock budget in seconds.")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
 def run(target: str, device: str | None, budget: int, runs_root: str) -> None:
     """Start an autonomous engagement."""
     cfg = EngagementConfig(
         bundle_id=target,
-        device_id=device,
+        device_id=_normalize_device(device),
         budget_seconds=budget,
         runs_root=Path(runs_root),
     )
@@ -43,7 +43,7 @@ def run(target: str, device: str | None, budget: int, runs_root: str) -> None:
 
 
 @main.command()
-@click.option("--device", default=None, help="Frida device id (defaults to first USB).")
+@click.option("--device", default=None, help="Frida device id (or 'usb' / 'local' / 'remote').")
 def doctor(device: str | None) -> None:
     """Verify environment and report tool status.
 
@@ -67,11 +67,14 @@ def doctor(device: str | None) -> None:
     checks.extend(_r2frida_plugin_checks())
 
     # Frida version alignment.
-    checks.extend(_frida_version_checks(device))
+    checks.extend(_frida_version_checks(_normalize_device(device)))
 
-    vendor = Path("mitm/vendor")
+    # Resolve relative to this file so the check works when invoked from
+    # any cwd (operators commonly run `openrecon doctor` from their home).
+    repo_root = Path(__file__).resolve().parents[1]
+    vendor = repo_root / "mitm" / "vendor"
     checks.append(("mitm/vendor vendored", vendor.exists(), str(vendor)))
-    skills = Path("skills/_upstream/anthropic-cybersecurity-skills")
+    skills = repo_root / "skills" / "_upstream" / "anthropic-cybersecurity-skills"
     checks.append(("anthropic skills vendored", skills.exists(), str(skills)))
 
     ok = True
@@ -84,6 +87,21 @@ def doctor(device: str | None) -> None:
     if not ok:
         click.echo("\nOne or more checks failed. See docs/roadmap.md for setup.")
         sys.exit(1)
+
+
+def _normalize_device(device: str | None) -> str | None:
+    """Treat ``--device usb`` (or empty / None) as 'first USB device'.
+
+    Frida's Python API uses ``get_usb_device()`` for the USB shortcut and
+    ``get_device(<id>)`` for a literal id; "usb" is not a real id, so
+    accepting it as a synonym for None is the operator-friendly choice.
+    """
+    if device is None:
+        return None
+    d = device.strip().lower()
+    if d in ("usb", "local", "auto", ""):
+        return None
+    return device
 
 
 def _frida_version_checks(device_id: str | None) -> list[tuple[str, bool, str]]:
