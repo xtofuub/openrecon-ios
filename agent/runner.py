@@ -59,6 +59,15 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
         mitm_client = await stack.enter_async_context(
             MitmClient.connect(port=cfg.mitm_port, run_dir=run_dir)
         )
+        # Connecting to mitmproxy-mcp over stdio only spawns the *MCP server*;
+        # the internal mitmproxy isn't listening on the port yet. Call its
+        # start_proxy tool so the device's WiFi proxy actually has something
+        # to talk to. Without this, mitm.it on the phone shows "if you can
+        # see this, traffic is not going thru mitmproxy".
+        try:
+            await mitm_client.start_proxy()
+        except Exception as exc:
+            log.warning("mitm.start_proxy_failed", error=str(exc))
         extras["frida_runner"] = frida_runner
         extras["mitm_client"] = mitm_client
 
