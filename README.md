@@ -63,43 +63,60 @@ openrecon/
 git clone https://github.com/xtofuub/openrecon-ios
 cd openrecon-ios
 
-# Core install
+# Core install (pulls every dep needed to run the vendored mitmproxy-mcp).
 pip install -e .
 
-# With radare2 static-analysis MCP servers
+# With radare2 static-analysis MCP servers (adds r2pipe).
 pip install -e .[r2]
-# also install r2 itself (Mac/Linux: https://github.com/radareorg/radare2)
-# Windows: scoop install radare2
+# Then install r2 itself:
+#   macOS/Linux: build from source — https://github.com/radareorg/radare2
+#   Windows:     scoop install radare2
 
-# Optional: r2frida plugin for live-process introspection
+# Optional: r2frida plugin for live-process introspection.
 r2pm -ci r2frida
+```
 
+### One-command MCP install
+
+Register the three openrecon MCP servers with every AI agent you use:
+
+```bash
+openrecon-install-mcp                         # interactive — pick agents from a checklist
+openrecon-install-mcp --agents all            # write to every detected agent
+openrecon-install-mcp --agents codex,opencode # comma-separated subset
+openrecon-install-mcp --dry-run               # show what would change, write nothing
+```
+
+Supported agents: **Claude Code · Cursor · Windsurf · Cline · OpenCode · Codex CLI · Continue · Zed.** The installer is idempotent (re-run any time), backs up the original config to `<file>.openrecon.bak`, and never touches keys outside `mcpServers` / `mcp_servers` / `context_servers`.
+
+### Run an engagement
+
+```bash
 openrecon doctor                                       # verify frida-tools, objection, mitmdump
 openrecon run --target com.example.targetapp --device usb
 ```
 
-Everything is already bundled — `mitm/vendor/` (mitmproxy-mcp) and `skills/_upstream/` (Anthropic iOS skills) ship in the repo.
+### MCP servers
 
-**Claude Code:** open this folder. Three MCP servers are auto-registered in `.claude/settings.json`:
-
-| Server | Tools | Notes |
+| Server | Command | Notes |
 |---|---|---|
-| `openrecon-mitm` | `start_proxy`, `replay_flow`, `fuzz_endpoint`, `detect_auth_pattern`, ... | Vendored mitmproxy-mcp. Always available. |
-| `openrecon-r2` | `r2_open`, `r2_functions`, `r2_strings`, `r2_xrefs`, `r2_classes`, `r2_entitlements`, `r2_decompile`, `r2_disasm`, `r2_search_bytes`, ... | Needs `pip install -e .[r2]` and r2 on PATH. |
-| `openrecon-r2frida` | `r2f_attach`, `r2f_classes`, `r2f_methods`, `r2f_modules`, `r2f_search_heap`, `r2f_memdump`, `r2f_trace`, `r2f_eval`, ... | Needs `r2pm -ci r2frida` + frida-server on device. |
+| `openrecon-mitm` | `python -m mitmproxy_mcp.core.server` (with `PYTHONPATH` to `mitm/vendor/src`) | Always available after `pip install -e .`. |
+| `openrecon-r2` | `r2-mcp` | Needs `pip install -e .[r2]` + `radare2` on PATH. |
+| `openrecon-r2frida` | `r2frida-mcp` | Needs `r2pm -ci r2frida` + `frida-server` running on the device. |
 
-**MCP only (no Claude Code):** point your MCP client at any of:
+### Tool reference
 
-```jsonc
-{
-  "mcpServers": {
-    "openrecon-mitm":    { "command": "python", "args": ["-m", "mitmproxy_mcp.core.server"],
-                            "env": { "PYTHONPATH": "mitm/vendor/src:." } },
-    "openrecon-r2":      { "command": "r2-mcp", "args": [] },
-    "openrecon-r2frida": { "command": "r2frida-mcp", "args": [] }
-  }
-}
-```
+#### `openrecon-mitm` (vendored mitmproxy-mcp)
+
+`start_proxy`, `stop_proxy`, `set_scope`, `set_global_header`, `remove_global_header`, `get_traffic_summary`, `inspect_flow`, `inspect_flows`, `get_flow_schema`, `load_traffic_file`, `extract_from_flow`, `search_traffic`, `set_session_variable`, `extract_session_variable`, `clear_traffic`, `fuzz_endpoint`, `replay_flow`, `add_interception_rule`, `list_rules`, `clear_rules`, `list_tools`, `export_openapi_spec`, `get_api_patterns`, `detect_auth_pattern`, `generate_scraper_code`.
+
+#### `openrecon-r2` (radare2 static analysis)
+
+`r2_open`, `r2_close`, `r2_info`, `r2_functions`, `r2_strings`, `r2_xrefs`, `r2_imports`, `r2_exports`, `r2_classes`, `r2_methods`, `r2_entitlements`, `r2_decompile`, `r2_disasm`, `r2_search_bytes`, `r2_search_string`, `r2_cmd`.
+
+#### `openrecon-r2frida` (radare2 attached to a live process)
+
+`r2f_attach`, `r2f_detach`, `r2f_sessions`, `r2f_modules`, `r2f_classes`, `r2f_methods`, `r2f_resolve`, `r2f_search_heap`, `r2f_search_string`, `r2f_memdump`, `r2f_trace`, `r2f_trace_stop`, `r2f_traces`, `r2f_disasm`, `r2f_eval`, `r2f_cmd`.
 
 ### NSURLSession capture without SSL pinning bypass
 

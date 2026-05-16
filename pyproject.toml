@@ -53,6 +53,7 @@ dev = [
 
 [project.scripts]
 openrecon = "agent.cli:main"
+openrecon-install-mcp = "agent.install_mcp:main"
 r2-mcp = "r2_mcp:main"
 r2frida-mcp = "r2frida_mcp:main"
 
