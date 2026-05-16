@@ -126,7 +126,7 @@ class Mutation:
         if base_status != mut_status:
             return (
                 VERDICT_STATUS_CHANGE,
-                [f"baseline status {base_status} → mutated status {mut_status}"],
+                [f"baseline status {base_status} -> mutated status {mut_status}"],
             )
         return VERDICT_NO_DIFF, []
 
@@ -210,7 +210,7 @@ class SwapUserIdMutation(Mutation):
                         method=str(request.get("method") or "GET"),
                         headers=dict(request.get("headers") or {}),
                         body=_body_bytes(request),
-                        note=f"swap path segment {idx} {value!r}→{identity!r} (label={label}, kind={kind})",
+                        note=f"swap path segment {idx} {value!r}->{identity!r} (label={label}, kind={kind})",
                     )
                 )
         return out
@@ -238,7 +238,7 @@ class IntegerOverflowIdMutation(Mutation):
                         method=str(request.get("method") or "GET"),
                         headers=dict(request.get("headers") or {}),
                         body=_body_bytes(request),
-                        note=f"integer boundary {value!r}→{boundary!r} at path seg {idx}",
+                        note=f"integer boundary {value!r}->{boundary!r} at path seg {idx}",
                     )
                 )
         return out
@@ -330,14 +330,14 @@ class JwtConfusionRs256Hs256(Mutation):
                 method=str(request.get("method") or "GET"),
                 headers=headers,
                 body=_body_bytes(request),
-                note="RS256→HS256 confusion using server public key as HMAC secret",
+                note="RS256->HS256 confusion using server public key as HMAC secret",
             )
         ]
 
     def verdict(self, baseline, mutated, mutated_request):
         mut_status = (mutated.get("response") or mutated).get("status", 0)
         if 200 <= mut_status < 300:
-            return VERDICT_AUTH_BYPASSED, ["RS256→HS256 confusion accepted"]
+            return VERDICT_AUTH_BYPASSED, ["RS256->HS256 confusion accepted"]
         return super().verdict(baseline, mutated, mutated_request)
 
 
@@ -362,7 +362,7 @@ class JwtExpiredReplay(Mutation):
                 method=str(request.get("method") or "GET"),
                 headers=headers,
                 body=_body_bytes(request),
-                note="exp rewritten to one hour ago (signature NOT updated → if accepted, exp ignored OR sig not verified)",
+                note="exp rewritten to one hour ago (signature NOT updated -> if accepted, exp ignored OR sig not verified)",
             )
         ]
 
@@ -436,7 +436,7 @@ class MethodSwap(Mutation):
                     method=probe,
                     headers=dict(request.get("headers") or {}),
                     body=_body_bytes(request),
-                    note=f"method swap GET→{probe}",
+                    note=f"method swap GET->{probe}",
                 )
             )
         return out
@@ -466,7 +466,7 @@ class VerbTunnelOverride(Mutation):
 
 class ContentTypeSwap(Mutation):
     name = "content_type_swap"
-    description = "Swap application/json → application/xml. XXE / framework-parser surface."
+    description = "Swap application/json -> application/xml. XXE / framework-parser surface."
 
     def apply(self, flow: dict[str, Any], ctx: MutationContext) -> Iterable[MutatedRequest]:
         request = flow.get("request") or {}
@@ -482,7 +482,7 @@ class ContentTypeSwap(Mutation):
                 method=str(request.get("method") or "POST"),
                 headers=headers,
                 body=_body_bytes(request),
-                note="content-type → application/xml",
+                note="content-type -> application/xml",
             )
         ]
 

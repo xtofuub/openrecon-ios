@@ -1,4 +1,4 @@
-"""``iorpl`` — Click CLI entry-point.
+"""iorpl - Click CLI entry-point.
 
 Sub-commands:
 
@@ -18,9 +18,20 @@ API exposed in ``iorpl/__init__.py``.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import click
+
+# Force UTF-8 on stdout/stderr so the report renderer and free-form notes
+# (which contain arrows, em-dashes, and non-ASCII identifiers from recorded
+# flows) survive Windows' cp1252 default.
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 from .format import SessionArchive
 from .mutations import BUILTIN_MUTATIONS
@@ -150,7 +161,7 @@ def run(session_path: str, suite_path: str, output: str, timeout: float, verify_
     results = engine.run_sync()
     total = len(results)
     bypassed = sum(1 for r in results if r.verdict in ("auth_bypassed", "leak_detected"))
-    click.echo(f"ran {total} mutations; {bypassed} confirmed findings → {output}")
+    click.echo(f"ran {total} mutations; {bypassed} confirmed findings -> {output}")
 
 
 @cli.command()
