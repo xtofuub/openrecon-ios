@@ -33,7 +33,7 @@ def _stub_r2pipe(monkeypatch):
         pipe = _FakePipe(
             responses={
                 "ij": '{"bin": {"arch": "arm64"}}',
-                "aaa": "",
+                "aa": "",
                 "aflj": '[{"name": "_main", "offset": 4096, "size": 128}]',
                 "izj": '[{"vaddr": 1, "string": "hello"}]',
             }
@@ -64,7 +64,7 @@ def test_ensure_analyzed_runs_once(tmp_path, _stub_r2pipe):
     sess.ensure_analyzed()
     sess.ensure_analyzed()
     fake = _stub_r2pipe[str(bin_path.resolve())]
-    assert fake.calls.count("aaa") == 1
+    assert fake.calls.count("aa") == 1
 
 
 def test_cmdj_parses_json(tmp_path):
