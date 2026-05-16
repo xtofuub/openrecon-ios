@@ -30,6 +30,8 @@ class FridaRunner:
         self.device_id = device_id
         self.pid: int | None = None
         self._session: Any | None = None
+        self._device: Any | None = None
+        self._resumed: bool = False
         self._scripts: list[Any] = []
         self._queue: asyncio.Queue[FridaEvent] = asyncio.Queue()
 
@@ -48,6 +50,27 @@ class FridaRunner:
         self.pid = device.spawn([self.bundle_id])
         self._session = device.attach(self.pid)
         self._session.on("detached", lambda reason: log.warning("frida.detached", reason=reason))
+        # Keep the device handle so we can resume the suspended process after
+        # bypass hooks are in place. `device.spawn` returns the pid in a
+        # *suspended* state on iOS; if we never resume, iOS launchd kills
+        # the process after ~20 s.
+        self._device = device
+        self._resumed = False
+
+    def resume(self) -> None:
+        """Release the spawn gate. Idempotent.
+
+        Call this once your bypass hooks (SSL pinning, jailbreak, etc.) are
+        loaded so they run before the app's anti-tamper code executes.
+        """
+        if self._resumed or self._device is None or self.pid is None:
+            return
+        try:
+            self._device.resume(self.pid)
+            self._resumed = True
+            log.info("frida.resume", pid=self.pid)
+        except Exception as exc:
+            log.warning("frida.resume_failed", error=str(exc), pid=self.pid)
 
     def load_hook(self, hook_name: str, *, replacements: dict[str, Any] | None = None) -> None:
         if self._session is None:

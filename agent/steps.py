@@ -123,6 +123,27 @@ class InstallHook(Step):
         return StepResult(summary=f"loaded {hook}")
 
 
+class ResumeTarget(Step):
+    """Release the suspended process so the app actually starts running.
+
+    ``device.spawn`` returns the process *suspended* on iOS — Frida pauses
+    it so we can install bypass hooks before any of the app's anti-tamper
+    code runs. Without an explicit resume the process sits idle and iOS
+    launchd kills it after ~20 s with ``reason=process-terminated``.
+    """
+
+    name = "ResumeTarget"
+
+    async def _run(self, ctx: ExecContext) -> StepResult:
+        runner = ctx.extras.get("frida_runner")
+        if not runner:
+            return StepResult(success=False, summary="no frida runner in context")
+        if not getattr(runner, "_session", None):
+            return StepResult(success=False, summary="frida session not attached")
+        runner.resume()
+        return StepResult(summary=f"resumed pid={runner.pid}")
+
+
 class AcquireBinary(Step):
     """Pull a decrypted Mach-O off the device via the binary_dump.js hook.
 
@@ -382,6 +403,7 @@ __all__ = [
     "EnvironmentCheck",
     "LaunchTarget",
     "InstallHook",
+    "ResumeTarget",
     "AcquireBinary",
     "ObjectionRecon",
     "ObservePassive",

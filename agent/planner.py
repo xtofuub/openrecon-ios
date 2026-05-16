@@ -22,6 +22,7 @@ from .steps import (  # noqa: I001  (keep import order stable)
     ObjectionRecon,
     ObservePassive,
     RenderFindings,
+    ResumeTarget,
     RunModule,
     Step,
     TestHypothesis,
@@ -148,6 +149,11 @@ class Planner:
             EnvironmentCheck(),
             LaunchTarget(),
             *[InstallHook(hook=h) for h in self.hooks],
+            # Resume immediately after bypass hooks are installed. Doing this
+            # *before* AcquireBinary keeps the iOS launchd from killing the
+            # suspended process while we read the binary off disk (Wobo and
+            # other timer-sensitive apps die after ~20 s suspended).
+            ResumeTarget(),
             AcquireBinary(),
             ObjectionRecon(),
         ]
