@@ -71,6 +71,10 @@ def _server_blocks() -> dict[str, dict[str, Any]]:
             "command": "r2frida-mcp",
             "args": [],
         },
+        "iorpl": {
+            "command": "iorpl-mcp",
+            "args": [],
+        },
     }
 
 

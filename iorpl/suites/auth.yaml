@@ -1,0 +1,23 @@
+name: "Auth bypass + JWT family"
+description: >
+  Strip auth headers, replace JWT with alg=none, try RS256→HS256 confusion
+  (requires ``context.extras.rs256_public_key_pem``), replay expired tokens.
+
+context:
+  extras:
+    # Paste the server's RS256 public key here to enable confusion test.
+    # rs256_public_key_pem: |
+    #   -----BEGIN PUBLIC KEY-----
+    #   ...
+    #   -----END PUBLIC KEY-----
+
+target:
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+  require_auth: true
+  status: [200, 201, 204]
+
+mutations:
+  - strip_auth
+  - jwt_alg_none
+  - jwt_rs256_to_hs256_confusion
+  - jwt_expired_replay

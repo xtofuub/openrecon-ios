@@ -1,0 +1,28 @@
+name: "Full bounty sweep"
+description: >
+  Every built-in mutation, against every authenticated 2xx flow. Set
+  ``context.session_pool.user_b.identity_id`` and optionally
+  ``context.extras.rs256_public_key_pem`` for full coverage.
+
+context:
+  session_pool:
+    user_b:
+      identity_id: "0"  # REPLACE with the other user's ID before running
+
+target:
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+  require_auth: true
+  status: [200, 201, 204]
+
+mutations:
+  - swap_user_id
+  - integer_overflow_id
+  - strip_auth
+  - jwt_alg_none
+  - jwt_rs256_to_hs256_confusion
+  - jwt_expired_replay
+  - mass_assignment_inject_privileged_fields
+  - method_swap
+  - verb_tunnel_override
+  - content_type_swap
+  - path_extra_admin_segment

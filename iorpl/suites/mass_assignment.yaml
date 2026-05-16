@@ -1,0 +1,12 @@
+name: "Mass-assignment payload injection"
+description: >
+  For every JSON-bodied request, inject privileged fields (role, is_admin,
+  permissions). Servers that don't strip unknown fields write them through.
+
+target:
+  methods: ["POST", "PUT", "PATCH"]
+  require_auth: true
+  status: [200, 201, 204]
+
+mutations:
+  - mass_assignment_inject_privileged_fields

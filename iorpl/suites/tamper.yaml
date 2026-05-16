@@ -1,0 +1,15 @@
+name: "HTTP-shape tampering"
+description: >
+  Method swap, verb tunneling, content-type swap, path-segment append. Cheap
+  tests that reveal misrouted handlers and over-permissive admin endpoints.
+
+target:
+  methods: ["GET", "POST", "PUT", "PATCH"]
+  require_auth: true
+  status: [200, 201, 204]
+
+mutations:
+  - method_swap
+  - verb_tunnel_override
+  - content_type_swap
+  - path_extra_admin_segment

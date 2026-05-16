@@ -59,13 +59,15 @@ openrecon = "agent.cli:main"
 openrecon-install-mcp = "agent.install_mcp:main"
 r2-mcp = "r2_mcp:main"
 r2frida-mcp = "r2frida_mcp:main"
+iorpl = "iorpl:main"
+iorpl-mcp = "iorpl.server:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent", "api", "frida_layer", "objection_layer", "mitm", "r2_mcp", "r2frida_mcp"]
+packages = ["agent", "api", "frida_layer", "objection_layer", "mitm", "r2_mcp", "r2frida_mcp", "iorpl"]
 
 [tool.ruff]
 line-length = 130

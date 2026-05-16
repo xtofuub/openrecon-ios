@@ -1,0 +1,23 @@
+name: "IDOR sweep"
+description: >
+  Try every bounty-shaped ID-shaped mutation against authenticated, successful
+  flows. Set ``context.session_pool.user_b.identity_id`` before running so
+  cross-tenant swaps fire.
+
+context:
+  session_pool:
+    user_b:
+      identity_id: "0"  # REPLACE with the other user's ID before running
+
+target:
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+  require_auth: true
+  status: [200, 201, 204]
+
+mutations:
+  - swap_user_id
+  - integer_overflow_id
+
+overrides:
+  swap_user_id:
+    skip_if_path_matches: ["/healthz", "/version", "/ping"]

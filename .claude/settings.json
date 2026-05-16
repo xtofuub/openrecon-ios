@@ -22,6 +22,11 @@
       "command": "r2frida-mcp",
       "args": [],
       "description": "r2frida live process MCP server. Tools: r2f_attach, r2f_classes, r2f_methods, r2f_modules, r2f_search_heap, r2f_memdump, r2f_trace, r2f_eval. Requires `r2pm -ci r2frida` + frida-server on device."
+    },
+    "iorpl": {
+      "command": "iorpl-mcp",
+      "args": [],
+      "description": "iOSReplay — record/replay iOS app sessions with bounty-shaped mutations (IDOR swap, JWT alg=none, mass assignment, etc.). Tools: iorpl_record, iorpl_import, iorpl_inspect, iorpl_run, iorpl_report, iorpl_list_mutations, iorpl_list_suites."
     }
   },
   "permissions": {

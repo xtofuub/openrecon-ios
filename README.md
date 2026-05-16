@@ -151,6 +151,32 @@ Once the engagement is running, your AI agent can interrogate live traffic and p
 | `openrecon-r2` | `r2-mcp` | Needs `pip install -e .[r2]` + `radare2` on PATH. |
 | `openrecon-r2frida` | `r2frida-mcp` | Needs `r2pm -ci r2frida` + `frida-server` running on the device. |
 
+### iOSReplay (`iorpl`) — Playwright for iOS pentest
+
+Sister tool living in this repo. Record an iOS app session once, replay it against a library of bounty-shaped mutations (IDOR swap, JWT alg=none, strip auth, mass assignment, method/verb tampering, …), get a HackerOne-ready report.
+
+```bash
+# 1. Record a session (re-uses openrecon's engagement runner).
+iorpl record --target com.example.app --device usb --budget 300 -o session.iorpl
+
+# 2. Or import an existing openrecon run dir.
+iorpl import runs/01ABC... --target com.example.app -o session.iorpl
+
+# 3. Browse what's bundled.
+iorpl mutations list
+iorpl suites list
+
+# 4. Run a suite (built-in name or path to your YAML).
+iorpl run session.iorpl --suite full --output results.jsonl
+
+# 5. Render the report.
+iorpl report results.jsonl --format md --output report.md
+```
+
+MCP server: `iorpl-mcp`. Tools: `iorpl_record`, `iorpl_import`, `iorpl_inspect`, `iorpl_run`, `iorpl_report`, `iorpl_list_mutations`, `iorpl_list_suites`. Registered automatically by `openrecon-install-mcp`.
+
+Full guide: [docs/iorpl.md](docs/iorpl.md).
+
 ### Tool reference
 
 #### `openrecon-mitm` (vendored mitmproxy-mcp)
