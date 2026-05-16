@@ -70,12 +70,16 @@ class Planner:
         query: RunQuery,
         *,
         modules: tuple[str, ...] = _DEFAULT_MODULE_ORDER,
+        hooks: tuple[str, ...] | None = None,
         llm: LlmStepProposer | None = None,
         enable_llm: bool = False,
     ) -> None:
         self.state = state
         self.query = query
         self.modules = modules
+        # ``hooks`` overrides _DEFAULT_HOOKS for the bootstrap sequence. An
+        # empty tuple disables auto-install entirely (MCP-driven mode).
+        self.hooks: tuple[str, ...] = _DEFAULT_HOOKS if hooks is None else hooks
         self._bootstrap_index = 0
         self._modules_run: set[str] = set()
         self.llm = llm
@@ -143,7 +147,7 @@ class Planner:
         sequence: list[Step] = [
             EnvironmentCheck(),
             LaunchTarget(),
-            *[InstallHook(hook=h) for h in _DEFAULT_HOOKS],
+            *[InstallHook(hook=h) for h in self.hooks],
             AcquireBinary(),
             ObjectionRecon(),
         ]

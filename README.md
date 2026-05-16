@@ -96,6 +96,53 @@ openrecon doctor                                       # verify frida-tools, obj
 openrecon run --target com.example.targetapp --device usb
 ```
 
+#### Common recipes
+
+```bash
+# Minimal probe — no mitm, just SSL/jailbreak bypass. Use when the app
+# crashes under heavy instrumentation. AI / MCP can install more hooks live.
+openrecon run --target com.example.app --device usb --hooks essential --no-mitm
+
+# Full autonomous run with everything (default).
+openrecon run --target com.example.app --device usb --budget 1800
+
+# Custom hook subset for a hardened app — keep the surface tiny.
+openrecon run --target com.example.app \
+  --hooks ssl_pinning_bypass.js,url_session_tracer.js
+
+# Skip auto-install of hooks entirely. The MCP server is up, the planner
+# walks the rest of the phases, and your AI / agent decides which hooks to
+# load via mcp tools while the engagement is live.
+openrecon run --target com.example.app --hooks none
+
+# Skip mitmproxy entirely (e.g. you want only Frida-side observation).
+openrecon run --target com.example.app --no-mitm
+
+# Use a non-default proxy port (avoids collision with a separately-running
+# mitmweb GUI on 8080).
+openrecon run --target com.example.app --mitm-port 8081
+
+# Inspect captured traffic with the mitm GUI:
+# Open a second terminal and run mitmweb pointed at the same data dir,
+# OR (recommended) just point your phone at the openrecon proxy and call
+# the MCP tools below (replay_flow, search_traffic, etc.) from your AI agent.
+mitmweb --listen-port 8090 -r runs/<run_id>/mitm_flows.jsonl
+```
+
+#### MCP-driven AI workflow
+
+Once the engagement is running, your AI agent can interrogate live traffic and process state through MCP without any further CLI involvement:
+
+| Goal | MCP call |
+|---|---|
+| List captured HTTP flows | `openrecon-mitm` → `get_traffic_summary` / `inspect_flows` |
+| Inspect one request + response | `openrecon-mitm` → `inspect_flow(flow_id, full_body=true)` |
+| Replay with mutations | `openrecon-mitm` → `replay_flow(flow_id, headers_json, body)` |
+| Fuzz an endpoint | `openrecon-mitm` → `fuzz_endpoint` |
+| Hunt for auth pattern | `openrecon-mitm` → `detect_auth_pattern` |
+| Static analysis of dumped Mach-O | `openrecon-r2` → `r2_open(path)` then `r2_functions` / `r2_xrefs` / `r2_decompile` |
+| Live process classes / heap | `openrecon-r2frida` → `r2f_attach(pid)` then `r2f_classes` / `r2f_search_heap` |
+
 ### MCP servers
 
 | Server | Command | Notes |

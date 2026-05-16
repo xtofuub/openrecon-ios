@@ -33,6 +33,10 @@ class EngagementConfig:
     budget_seconds: int = 1800
     runs_root: Path = Path("runs")
     mitm_port: int = 8080
+    use_mitm: bool = True
+    # Hook selector: None = use planner default, "none" = skip auto-install,
+    # "all" = install every default hook, list = explicit subset.
+    hooks: str | None = None
 
 
 async def run_engagement(cfg: EngagementConfig) -> EngagementState:
@@ -56,20 +60,24 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
         from mitm.client import MitmClient
 
         frida_runner = FridaRunner.from_state(state)
-        mitm_client = await stack.enter_async_context(
-            MitmClient.connect(port=cfg.mitm_port, run_dir=run_dir)
-        )
-        # Connecting to mitmproxy-mcp over stdio only spawns the *MCP server*;
-        # the internal mitmproxy isn't listening on the port yet. Call its
-        # start_proxy tool so the device's WiFi proxy actually has something
-        # to talk to. Without this, mitm.it on the phone shows "if you can
-        # see this, traffic is not going thru mitmproxy".
-        try:
-            await mitm_client.start_proxy()
-        except Exception as exc:
-            log.warning("mitm.start_proxy_failed", error=str(exc))
         extras["frida_runner"] = frida_runner
-        extras["mitm_client"] = mitm_client
+
+        mitm_client = None
+        if cfg.use_mitm:
+            mitm_client = await stack.enter_async_context(
+                MitmClient.connect(port=cfg.mitm_port, run_dir=run_dir)
+            )
+            # Connecting to mitmproxy-mcp over stdio only spawns the *MCP
+            # server*; the internal mitmproxy isn't listening on the port
+            # yet. Call its start_proxy tool so the device's WiFi proxy
+            # actually has something to talk to.
+            try:
+                await mitm_client.start_proxy()
+            except Exception as exc:
+                log.warning("mitm.start_proxy_failed", error=str(exc))
+            extras["mitm_client"] = mitm_client
+        else:
+            log.info("mitm.disabled", reason="--no-mitm")
 
         # Two background tasks: pump Frida + MITM events into store and correlator.
         async def pump_frida() -> None:
@@ -84,6 +92,8 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
                     correlator.ingest_flow(synthetic)
 
         async def pump_mitm() -> None:
+            if mitm_client is None:
+                return
             async for flow in mitm_client.stream_flows():
                 store.append("mitm_flows", flow)
                 correlator.ingest_flow(flow)
@@ -94,7 +104,7 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
         ]
         stack.push_async_callback(_cancel_tasks, pump_tasks)
 
-        planner = Planner(state, query)
+        planner = Planner(state, query, hooks=_resolve_hooks(cfg.hooks))
         try:
             while not state.is_terminal():
                 step = planner.next_step()
@@ -114,6 +124,28 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
             save_state(state, run_dir)
 
     return state
+
+
+def _resolve_hooks(spec: str | None) -> tuple[str, ...] | None:
+    """Turn ``--hooks`` CLI spec into the tuple ``Planner`` expects.
+
+    Spec values:
+        - ``None``                — planner default (all bundled hooks)
+        - ``"essential"``         — just SSL pinning + jailbreak bypass
+        - ``"none"``              — skip auto-install entirely; AI / operator
+                                    can call mcp install hook tools live
+        - comma-separated names   — exact subset
+    """
+    if spec is None:
+        return None
+    s = spec.strip().lower()
+    if s == "all":
+        return None
+    if s == "none":
+        return ()
+    if s == "essential":
+        return ("ssl_pinning_bypass.js", "jailbreak_bypass.js")
+    return tuple(p.strip() for p in spec.split(",") if p.strip())
 
 
 async def _cancel_tasks(tasks: list[asyncio.Task]) -> None:

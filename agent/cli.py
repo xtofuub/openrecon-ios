@@ -30,8 +30,28 @@ def main() -> None:
 @click.option("--device", default=None, help="Frida device id (or 'usb' / 'local' / 'remote').")
 @click.option("--budget", default=1800, type=int, help="Wall-clock budget in seconds.")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
+@click.option("--mitm/--no-mitm", "use_mitm", default=True, help="Start the mitmproxy proxy + MCP server (default: yes).")
 @click.option("--mitm-port", default=8080, type=int, help="Port mitmproxy listens on (phone proxy target).")
-def run(target: str, device: str | None, budget: int, runs_root: str, mitm_port: int) -> None:
+@click.option(
+    "--hooks",
+    "hooks",
+    default="all",
+    help=(
+        "Hooks to auto-install at bootstrap. 'all' (default), 'essential' "
+        "(SSL + jailbreak only), 'none' (let the MCP / AI install hooks "
+        "live), or a comma-separated list like "
+        "'ssl_pinning_bypass.js,url_session_tracer.js'."
+    ),
+)
+def run(
+    target: str,
+    device: str | None,
+    budget: int,
+    runs_root: str,
+    use_mitm: bool,
+    mitm_port: int,
+    hooks: str,
+) -> None:
     """Start an autonomous engagement."""
     cfg = EngagementConfig(
         bundle_id=target,
@@ -39,6 +59,8 @@ def run(target: str, device: str | None, budget: int, runs_root: str, mitm_port:
         budget_seconds=budget,
         runs_root=Path(runs_root),
         mitm_port=mitm_port,
+        use_mitm=use_mitm,
+        hooks=hooks,
     )
     state = asyncio.run(run_engagement(cfg))
     click.echo(f"run_id={state.run_id} phase={state.phase.value}")
