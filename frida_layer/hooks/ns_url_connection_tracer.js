@@ -370,7 +370,13 @@
   } catch (_) {}
 
   // ── Delegate callbacks ─────────────────────────────────────────────────────
+  //
+  // Deferred via setImmediate — see url_session_body_tracer.js for the
+  // same rationale: a synchronous walk of every loaded class blocks
+  // script.load() past Frida's connection timeout.
 
+  setImmediate(function () {
+    try {
   ObjC.enumerateLoadedClasses({}, {
     onMatch: function (name) {
       try {
@@ -471,5 +477,7 @@
       } catch (_) {}
     },
     onComplete: function () {}
+  });
+    } catch (_) {}
   });
 })();
