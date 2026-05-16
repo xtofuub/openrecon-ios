@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import base64
 
-import pytest
-
 from agent.frida_flow_normalizer import FridaFlowNormalizer
 from agent.schema import FridaEvent
 

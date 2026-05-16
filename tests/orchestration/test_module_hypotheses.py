@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import base64
-
 import pytest
 
 from agent.schema import SessionCreds, Severity
-from api.auth import AuthModule, ModuleInput as AuthInput
-from api.idor import IdorModule, ModuleInput as IdorInput
+from api.auth import AuthModule
+from api.auth import ModuleInput as AuthInput
+from api.idor import IdorModule
+from api.idor import ModuleInput as IdorInput
 
 
 @pytest.mark.asyncio

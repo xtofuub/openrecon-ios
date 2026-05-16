@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import threading
@@ -10,8 +9,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from mitm.client import MitmClient
 from agent.schema import HttpRequest, HttpResponse, MitmFlow
+from mitm.client import MitmClient
 
 
 class _Echo(BaseHTTPRequestHandler):
