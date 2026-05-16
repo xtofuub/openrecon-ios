@@ -30,13 +30,15 @@ def main() -> None:
 @click.option("--device", default=None, help="Frida device id (or 'usb' / 'local' / 'remote').")
 @click.option("--budget", default=1800, type=int, help="Wall-clock budget in seconds.")
 @click.option("--runs-root", default="runs", type=click.Path(), help="Where run dirs go.")
-def run(target: str, device: str | None, budget: int, runs_root: str) -> None:
+@click.option("--mitm-port", default=8080, type=int, help="Port mitmproxy listens on (phone proxy target).")
+def run(target: str, device: str | None, budget: int, runs_root: str, mitm_port: int) -> None:
     """Start an autonomous engagement."""
     cfg = EngagementConfig(
         bundle_id=target,
         device_id=_normalize_device(device),
         budget_seconds=budget,
         runs_root=Path(runs_root),
+        mitm_port=mitm_port,
     )
     state = asyncio.run(run_engagement(cfg))
     click.echo(f"run_id={state.run_id} phase={state.phase.value}")
