@@ -43,14 +43,31 @@ def run(target: str, device: str | None, budget: int, runs_root: str) -> None:
 
 
 @main.command()
-def doctor() -> None:
-    """Verify environment and report tool status."""
+@click.option("--device", default=None, help="Frida device id (defaults to first USB).")
+def doctor(device: str | None) -> None:
+    """Verify environment and report tool status.
+
+    Includes a Frida client-vs-server version alignment check. r2frida bundles
+    a specific frida-core version into ``io_frida``; if your phone's
+    ``frida-server`` is a different major, ``r2frida://`` enumeration fails.
+    The check also catches the same issue for the Python ``frida`` package
+    you use directly via the engagement runner.
+    """
     checks: list[tuple[str, bool, str]] = []
 
     checks.append(("python", sys.version_info >= (3, 12), f"version={sys.version.split()[0]}"))
     checks.append(("frida-tools", shutil.which("frida") is not None, shutil.which("frida") or "missing"))
     checks.append(("objection", shutil.which("objection") is not None, shutil.which("objection") or "missing"))
     checks.append(("mitmdump", shutil.which("mitmdump") is not None, shutil.which("mitmdump") or "missing"))
+
+    # r2 stack — informational. Not required for the core engagement loop.
+    checks.append(("radare2", shutil.which("r2") is not None, shutil.which("r2") or "missing (optional)"))
+    checks.append(("r2-mcp", shutil.which("r2-mcp") is not None, shutil.which("r2-mcp") or "missing (optional)"))
+    checks.append(("r2frida-mcp", shutil.which("r2frida-mcp") is not None, shutil.which("r2frida-mcp") or "missing (optional)"))
+    checks.extend(_r2frida_plugin_checks())
+
+    # Frida version alignment.
+    checks.extend(_frida_version_checks(device))
 
     vendor = Path("mitm/vendor")
     checks.append(("mitm/vendor vendored", vendor.exists(), str(vendor)))
@@ -67,6 +84,100 @@ def doctor() -> None:
     if not ok:
         click.echo("\nOne or more checks failed. See docs/roadmap.md for setup.")
         sys.exit(1)
+
+
+def _frida_version_checks(device_id: str | None) -> list[tuple[str, bool, str]]:
+    """Return rows about local frida + remote frida-server alignment.
+
+    The remote-server probe is best-effort: if no device is reachable, that
+    row is marked failed with the underlying error rather than crashing.
+    """
+    rows: list[tuple[str, bool, str]] = []
+
+    # Local frida (PyPI) — what r2frida-mcp + our Python hooks talk to.
+    try:
+        import frida as _frida  # type: ignore
+
+        local = str(getattr(_frida, "__version__", "?"))
+    except Exception as exc:
+        rows.append(("frida (python pkg)", False, f"import failed: {exc}"))
+        return rows
+    rows.append(("frida (python pkg)", local != "?", f"version={local}"))
+
+    # Remote frida-server.
+    try:
+        import frida as _frida  # type: ignore
+
+        device = _frida.get_device(device_id) if device_id else _frida.get_usb_device(timeout=3)
+        remote = device.query_system_parameters().get("frida-version") if hasattr(device, "query_system_parameters") else None
+        if not remote:
+            # Older frida versions: fall back to spawning frida-helper probe.
+            try:
+                remote = device.get_frontmost_application().__class__.__module__
+            except Exception:
+                remote = None
+        remote_str = str(remote or "unknown")
+    except Exception as exc:
+        rows.append(("frida-server (device)", False, f"probe failed: {exc}"))
+        return rows
+
+    rows.append(("frida-server (device)", remote_str != "unknown", f"version={remote_str}"))
+
+    if remote_str == "unknown" or local == "?":
+        return rows
+
+    aligned, detail = _versions_aligned(local, remote_str)
+    rows.append(("frida client<->server", aligned, detail))
+    return rows
+
+
+def _versions_aligned(local: str, remote: str) -> tuple[bool, str]:
+    """Compare frida versions. Mismatched major versions break the protocol."""
+    def _parts(v: str) -> tuple[int, int, int]:
+        nums: list[int] = []
+        for piece in v.split("."):
+            head = piece.split("-")[0]
+            try:
+                nums.append(int(head))
+            except ValueError:
+                nums.append(0)
+            if len(nums) == 3:
+                break
+        while len(nums) < 3:
+            nums.append(0)
+        return nums[0], nums[1], nums[2]
+
+    la = _parts(local)
+    ra = _parts(remote)
+    if la[0] != ra[0]:
+        return False, (
+            f"MAJOR MISMATCH local={local} server={remote}. "
+            f"Upgrade frida-server on device to {la[0]}.x OR pip install 'frida=={ra[0]}.*'."
+        )
+    if la != ra:
+        return True, f"minor diff ok local={local} server={remote}"
+    return True, f"matched={local}"
+
+
+def _r2frida_plugin_checks() -> list[tuple[str, bool, str]]:
+    """Detect whether r2frida's io_frida plugin is actually loadable.
+
+    Runs `r2 -L` and greps for `frida`. Skipped if r2 itself is missing.
+    """
+    import subprocess
+
+    if shutil.which("r2") is None:
+        return []
+    try:
+        out = subprocess.run(
+            ["r2", "-L"], capture_output=True, text=True, timeout=10, check=False
+        )
+    except (subprocess.SubprocessError, OSError) as exc:
+        return [("r2 plugins (io_frida)", False, f"r2 -L failed: {exc}")]
+    haystack = (out.stdout or "") + (out.stderr or "")
+    found = "frida" in haystack.lower()
+    detail = "loaded" if found else "io_frida.dll not in R2_USER_PLUGINS"
+    return [("r2 plugins (io_frida)", found, detail)]
 
 
 @main.command()
