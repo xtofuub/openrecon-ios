@@ -28,6 +28,10 @@ Public API:
     main                — CLI entry-point (Click)
 """
 
+# Side-effect import — registers ``llm_creative`` into BUILTIN_MUTATIONS.
+# Kept lazy-friendly: the mutation itself only imports anthropic when its
+# ``apply()`` runs, so this module-level import doesn't pull the SDK at startup.
+from . import ai_mutations  # noqa: F401
 from .format import IorplSession, SessionArchive, SessionMeta
 from .mutations import BUILTIN_MUTATIONS, Mutation, MutationResult
 

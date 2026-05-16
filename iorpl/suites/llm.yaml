@@ -1,0 +1,13 @@
+name: "LLM-driven creative attacks"
+description: >
+  Use Claude to propose context-specific business-logic and authorization-
+  bypass attacks per recorded flow. Targets logic bugs that deterministic
+  mutations miss (negative prices, state-machine confusion, cross-tenant
+  writes, hidden admin params). Requires ANTHROPIC_API_KEY in env.
+
+target:
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+  require_auth: true
+
+mutations:
+  - llm_creative
