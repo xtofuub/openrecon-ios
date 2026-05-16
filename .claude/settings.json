@@ -12,6 +12,16 @@
         "PYTHONPATH": "mitm/vendor/src:."
       },
       "description": "Vendored mitmproxy-mcp + local iOS addons. Exposes the proxy as MCP tools (start_proxy, replay_flow, extract_from_flow, fuzz_endpoint, detect_auth_pattern, etc.)."
+    },
+    "openrecon-r2": {
+      "command": "r2-mcp",
+      "args": [],
+      "description": "radare2 static analysis MCP server. Tools: r2_open, r2_functions, r2_strings, r2_xrefs, r2_imports, r2_classes, r2_entitlements, r2_decompile, r2_disasm, r2_search_bytes. Requires `pip install -e .[r2]` and `r2 -v`."
+    },
+    "openrecon-r2frida": {
+      "command": "r2frida-mcp",
+      "args": [],
+      "description": "r2frida live process MCP server. Tools: r2f_attach, r2f_classes, r2f_methods, r2f_modules, r2f_search_heap, r2f_memdump, r2f_trace, r2f_eval. Requires `r2pm -ci r2frida` + frida-server on device."
     }
   },
   "permissions": {

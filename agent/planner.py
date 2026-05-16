@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from .schema import Phase
 from .steps import (  # noqa: I001  (keep import order stable)
+    AcquireBinary,
     CorrelateRange,
     DetectAuthPattern,
     EnvironmentCheck,
@@ -45,7 +46,12 @@ _DEFAULT_HOOKS = (
     "ssl_pinning_bypass.js",
     "jailbreak_bypass.js",
     "url_session_tracer.js",
+    "url_session_body_tracer.js",
+    "ns_url_connection_tracer.js",
     "commoncrypto_tracer.js",
+    "keychain_full_dump.js",
+    "nshttpcookiestorage_tracer.js",
+    "nsuserdefaults_tracer.js",
 )
 
 
@@ -138,6 +144,7 @@ class Planner:
             EnvironmentCheck(),
             LaunchTarget(),
             *[InstallHook(hook=h) for h in _DEFAULT_HOOKS],
+            AcquireBinary(),
             ObjectionRecon(),
         ]
         if self._bootstrap_index >= len(sequence):
@@ -162,8 +169,66 @@ class Planner:
         for name in self.modules:
             if name not in self._modules_run:
                 self._modules_run.add(name)
-                return RunModule(module=name)
+                baselines = self._pick_baselines(limit=50)
+                return RunModule(module=name, baseline_flow_ids=baselines)
         return None
+
+    # ------------------------------------------------------------ flow scoring
+
+    _AUTH_HEADERS = ("authorization", "cookie", "x-api-key", "x-auth-token", "x-session-token")
+
+    def _pick_baselines(self, *, limit: int = 50) -> list[str]:
+        """Rank recorded flows by 'value' for active testing and return top N.
+
+        Heuristics, in priority order:
+          1. Authenticated (carries one of the known auth-bearing headers).
+          2. Successful (2xx).
+          3. Bears an ID-like position in path/query/body — modules want IDs.
+          4. Non-GET methods (more likely to mutate state).
+          5. JSON content-type (cheap to mutate cleanly).
+          6. Non-trivial response size (real data, not 204s / health pings).
+        """
+        try:
+            from api.base import identify_id_positions
+        except Exception:
+            identify_id_positions = None  # type: ignore[assignment]
+
+        scored: list[tuple[float, str]] = []
+        for flow in self.query.flows():
+            request = flow.get("request") or {}
+            response = flow.get("response") or {}
+            status = int(response.get("status") or 0)
+            if status == 0 or status >= 400:
+                continue
+            headers_lower = {str(k).lower() for k in (request.get("headers") or {})}
+            if not any(h in headers_lower for h in self._AUTH_HEADERS):
+                continue
+            score = 1.0
+            if 200 <= status < 300:
+                score += 1.0
+            method = str(request.get("method") or "GET").upper()
+            if method in ("POST", "PUT", "PATCH", "DELETE"):
+                score += 1.0
+            content_type = ""
+            for k, v in (response.get("headers") or {}).items():
+                if str(k).lower() == "content-type":
+                    content_type = str(v).lower()
+                    break
+            if "json" in content_type:
+                score += 0.5
+            body_b64 = (response.get("body_b64") or "")
+            if len(body_b64) > 200:
+                score += 0.5
+            if identify_id_positions is not None:
+                try:
+                    if identify_id_positions(flow):
+                        score += 1.5
+                except Exception:
+                    pass
+            scored.append((score, str(flow.get("flow_id") or "")))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [fid for _, fid in scored[:limit] if fid]
 
     @staticmethod
     def _has_high_severity(findings: list[dict]) -> bool:

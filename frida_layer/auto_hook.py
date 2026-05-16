@@ -15,7 +15,12 @@ _DEFAULT_HOOKS = (
     "ssl_pinning_bypass.js",
     "jailbreak_bypass.js",
     "url_session_tracer.js",
+    "url_session_body_tracer.js",
+    "ns_url_connection_tracer.js",
     "commoncrypto_tracer.js",
+    "keychain_full_dump.js",
+    "nshttpcookiestorage_tracer.js",
+    "nsuserdefaults_tracer.js",
 )
 
 

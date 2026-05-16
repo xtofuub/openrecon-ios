@@ -196,7 +196,7 @@ def cli_entry(module_cls: type[ApiModule]) -> None:
             if config_path:
                 config = json.loads(Path(config_path).read_text(encoding="utf-8"))
 
-            async with MitmClient.connect(port=mitm_port) as client:
+            async with MitmClient.connect(port=mitm_port, run_dir=Path(run_dir)) as client:
                 inp = ModuleInput(
                     run_dir=Path(run_dir),
                     baseline_flow_ids=list(baseline),

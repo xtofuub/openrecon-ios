@@ -11,10 +11,14 @@ The platform inspects an iOS app at runtime, captures and mutates its network tr
 ## What it does
 
 1. **Runtime inspection** — Frida hooks (Objective-C / Swift) and Objection recon on a jailbroken iOS device.
-2. **Traffic capture** — MITMProxy MCP intercepts HTTPS, replays flows with TLS fingerprinting, fuzzes endpoints.
+2. **Traffic capture (two sources, transparent fallback)** —
+   - **MITMProxy MCP** intercepts HTTPS, replays flows with TLS fingerprinting, fuzzes endpoints.
+   - **NSURLSession / NSURLConnection body tracers** capture full request and response bodies at the Obj-C delegate layer — *no SSL pinning bypass required, no proxy required.* Synthetic flows are normalized to the same shape as mitm flows so correlator / finders / replay / modules consume both uniformly.
 3. **Correlation** — A scoring engine links every captured flow to the runtime call that produced it (class, method, stack, args).
-4. **Bug-bounty modules** — IDOR, auth bypass, mass assignment, parameter tampering, GraphQL introspection, JWT analysis.
-5. **Autonomous planner** — A rule-based loop (LLM fallback) decides what to inspect next, generates findings, and writes reproducible Markdown + JSON reports.
+4. **Static analysis via radare2** — `r2-mcp` exposes 15 r2 tools (functions, xrefs, decompilation, entitlements, strings) over a separate MCP server. `r2frida-mcp` adds live-process equivalents (heap search, module enumeration, selector tracing).
+5. **Bug-bounty modules** — IDOR, auth bypass, mass assignment, parameter tampering, GraphQL introspection, JWT analysis. Modules emit **open hypotheses** on ambiguous results that the planner re-tests in an exploit phase.
+6. **Secret-store finders** — keychain, NSHTTPCookieStorage, and NSUserDefaults events feed pattern detectors for JWT / AWS / Stripe / GitHub PAT / Slack tokens and PII (email / phone / SSN).
+7. **Autonomous planner** — A rule-based loop (LLM fallback) decides what to inspect next, generates findings, retests hypotheses, and writes reproducible Markdown + JSON reports.
 
 ---
 
@@ -22,57 +26,103 @@ The platform inspects an iOS app at runtime, captures and mutates its network tr
 
 ```
 openrecon/
-├── agent/         # planner, workflow engine, correlation, finding generator
-├── api/           # bug-bounty modules (IDOR, auth, mass assignment, GraphQL, ...)
-├── frida_layer/   # JS hooks + Python orchestrator (jailbroken-first)
+├── agent/             # planner, workflow engine, correlation, finder rules
+│   ├── frida_flow_normalizer.py   # Frida HTTP events → MitmFlow records
+│   └── finders_secrets.py         # keychain / cookie / userdefaults / static
+├── api/               # bug-bounty modules (IDOR, auth, mass assignment, GraphQL, ...)
+│   ├── binary.py      # decrypted Mach-O acquisition via Frida
+│   └── static.py      # in-process r2 wrapper for the planner
+├── frida_layer/       # JS hooks + Python orchestrator (jailbroken-first)
+│   └── hooks/
+│       ├── url_session_body_tracer.js     # full req/resp bodies, no SSL bypass
+│       ├── ns_url_connection_tracer.js    # NSURLConnection equivalent
+│       └── binary_dump.js                 # FairPlay-aware Mach-O dumper
 ├── objection_layer/   # scripted Objection command sequences
 ├── mitm/
-│   ├── vendor/    # forked snapspecter/mitmproxy-mcp (git subtree)
-│   └── addons/    # custom mitmproxy addons (correlation emitter, iOS filter)
+│   ├── vendor/        # forked snapspecter/mitmproxy-mcp (git subtree)
+│   ├── addons/        # custom mitmproxy addons (correlation emitter, iOS filter)
+│   └── client.py      # adds replay_synthetic() for Frida-sourced flows
+├── r2_mcp/            # radare2 static analysis MCP server (stdio)
+├── r2frida_mcp/       # r2frida live-process MCP server (stdio)
 ├── skills/
 │   ├── _upstream/                                 # vendored Anthropic skills
-│   ├── reverse-engineering-ios-app-with-frida/    # wrapper -> _upstream
-│   ├── analyzing-ios-app-security-with-objection/ # wrapper -> _upstream
 │   └── ios-security-research/                     # top-level orchestrator skill
-├── templates/     # finding.md.j2, finding.schema.json, engagement.example.yaml
-├── reports/       # run outputs (gitignored)
-├── docs/          # architecture.md, roadmap.md, workflows.md, ...
-├── .claude/       # settings.json (MCP servers), commands/
-└── tests/
+├── templates/         # finding.md.j2, finding.schema.json, engagement.example.yaml
+├── docs/              # architecture.md, roadmap.md, workflows.md, r2-integration.md
+├── .claude/           # settings.json (MCP servers), commands/
+└── tests/             # 161 passing
 ```
 
 ---
 
 ## Quick start
 
-**Prerequisites:** Python 3.12–3.13 · jailbroken iOS device with `frida-server` · mitmproxy CA cert installed on device · USB connection
+**Prerequisites:** Python 3.12–3.13 · jailbroken iOS device with `frida-server` · mitmproxy CA cert installed on device · USB connection. **Optional:** `radare2` for static analysis tools.
 
 ```bash
 git clone https://github.com/xtofuub/openrecon-ios
 cd openrecon-ios
-uv sync              # or: pip install -e .
-openrecon doctor     # verify frida-tools, objection, mitmdump
+
+# Core install
+pip install -e .
+
+# With radare2 static-analysis MCP servers
+pip install -e .[r2]
+# also install r2 itself (Mac/Linux: https://github.com/radareorg/radare2)
+# Windows: scoop install radare2
+
+# Optional: r2frida plugin for live-process introspection
+r2pm -ci r2frida
+
+openrecon doctor                                       # verify frida-tools, objection, mitmdump
 openrecon run --target com.example.targetapp --device usb
 ```
 
-Everything is already bundled — `mitm/vendor/` (mitmproxy-mcp) and `skills/_upstream/` (Anthropic iOS skills) ship in the repo. No extra setup commands.
+Everything is already bundled — `mitm/vendor/` (mitmproxy-mcp) and `skills/_upstream/` (Anthropic iOS skills) ship in the repo.
 
-**Claude Code:** open this folder. The `ios-security-research` skill auto-triggers on iOS engagement language. The MCP server (`openrecon-mitm`) starts automatically via `.claude/settings.json`.
+**Claude Code:** open this folder. Three MCP servers are auto-registered in `.claude/settings.json`:
 
-**MCP only (no Claude Code):** point your MCP client at:
-```json
+| Server | Tools | Notes |
+|---|---|---|
+| `openrecon-mitm` | `start_proxy`, `replay_flow`, `fuzz_endpoint`, `detect_auth_pattern`, ... | Vendored mitmproxy-mcp. Always available. |
+| `openrecon-r2` | `r2_open`, `r2_functions`, `r2_strings`, `r2_xrefs`, `r2_classes`, `r2_entitlements`, `r2_decompile`, `r2_disasm`, `r2_search_bytes`, ... | Needs `pip install -e .[r2]` and r2 on PATH. |
+| `openrecon-r2frida` | `r2f_attach`, `r2f_classes`, `r2f_methods`, `r2f_modules`, `r2f_search_heap`, `r2f_memdump`, `r2f_trace`, `r2f_eval`, ... | Needs `r2pm -ci r2frida` + frida-server on device. |
+
+**MCP only (no Claude Code):** point your MCP client at any of:
+
+```jsonc
 {
-  "command": "python",
-  "args": ["-m", "mitmproxy_mcp.core.server"],
-  "env": { "PYTHONPATH": "mitm/vendor/src:." }
+  "mcpServers": {
+    "openrecon-mitm":    { "command": "python", "args": ["-m", "mitmproxy_mcp.core.server"],
+                            "env": { "PYTHONPATH": "mitm/vendor/src:." } },
+    "openrecon-r2":      { "command": "r2-mcp", "args": [] },
+    "openrecon-r2frida": { "command": "r2frida-mcp", "args": [] }
+  }
 }
 ```
+
+### NSURLSession capture without SSL pinning bypass
+
+The body tracers (`url_session_body_tracer.js`, `ns_url_connection_tracer.js`) hook the Obj-C delegate / completion-handler layer **after** the OS TLS stack has decrypted the bytes. They emit a single `flow.complete` event with full request + response, which `agent.frida_flow_normalizer.FridaFlowNormalizer` turns into a `MitmFlow` record. Synthetic flow IDs are namespaced `frida-*`.
+
+All consumers — correlator, endpoint_map, IDOR / auth / mass_assignment modules, finder rules, replay — accept the synthetic flows transparently. `MitmClient.replay_flow(flow_id)` dispatches `frida-*` IDs to `replay_synthetic`, which re-issues the request via `httpx` and appends the result back to `mitm_flows.jsonl` with `tags=["replayed", "synthetic-replay"]`.
+
+### Static + live binary analysis with radare2
+
+`AcquireBinary` is part of the bootstrap sequence. It loads `binary_dump.js`, which:
+
+1. Locates the main module via `Process.enumerateModules()`.
+2. Reads the on-disk Mach-O.
+3. For every `LC_ENCRYPTION_INFO[_64]` with `cryptid != 0`, splices the **decrypted** bytes from memory over the encrypted bytes in the file buffer and zeros `cryptid`.
+4. Streams the patched binary back in 1 MB chunks.
+
+The result lands at `runs/<run_id>/artifacts/app.macho`. Operators can also pre-populate this path with `bagbak` or `frida-ios-dump` output. The `r2-mcp` tools then operate on the decrypted binary; `r2frida-mcp` attaches to the running process for live introspection.
 
 ---
 
 ## Status
 
-Phase 1 scaffolding. See [docs/roadmap.md](docs/roadmap.md) for milestones and [docs/architecture.md](docs/architecture.md) for the design.
+Phases 1–8 implemented. 161 tests passing across unit / orchestration / module / integration layers. See [docs/roadmap.md](docs/roadmap.md) for milestones, [docs/architecture.md](docs/architecture.md) for the design, and [docs/r2-integration.md](docs/r2-integration.md) for the static-analysis MCP servers.
 
 ## License
 

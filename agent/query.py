@@ -73,6 +73,19 @@ class RunQuery:
                 return record
         return None
 
+    def frida_events_by_hook(self, hook_source: str) -> list[dict[str, Any]]:
+        """All Frida events whose ``hook_source`` matches the given JS filename.
+
+        Walks the JSONL stream directly because hook_source is not indexed in
+        SQLite (it's a low-cardinality string but events are append-only and
+        the scan stays linear).
+        """
+        return [
+            r
+            for r in self._read_jsonl("frida_events.jsonl")
+            if r.get("hook_source") == hook_source
+        ]
+
     def frida_events_by_method(self, cls: str, method: str) -> list[dict[str, Any]]:
         cur = self.db.cursor()
         rows = cur.execute(

@@ -8,6 +8,7 @@ from typing import Any
 from agent.schema import (
     Evidence,
     Finding,
+    Hypothesis,
     ModuleCoverage,
     ModuleResult,
     ReproStep,
@@ -25,6 +26,7 @@ class AuthModule(ApiModule):
 
     async def run(self, inp: ModuleInput) -> ModuleResult:
         findings: list[Finding] = []
+        hypotheses: list[Hypothesis] = []
         coverage = ModuleCoverage(totals={"flows": 0, "probes": 0})
 
         for flow_id in inp.baseline_flow_ids:
@@ -35,16 +37,46 @@ class AuthModule(ApiModule):
             coverage.totals["flows"] += 1
             present = [h for h in _AUTH_HEADERS if h in {k.lower() for k in flow["request"]["headers"]}]
             if not present:
+                # An auth-bearing endpoint with *no* auth header observed is
+                # weird; open a hypothesis the planner can probe later.
+                hypotheses.append(
+                    Hypothesis(
+                        claim=(
+                            f"{flow['request']['method']} {flow['request']['url']} returned 2xx "
+                            "but carried no observed auth header — verify endpoint is intended to be public"
+                        ),
+                        status="open",
+                        tests=[f"replay_with_body_mutation:{flow_id}"],
+                        evidence=[Evidence(kind="flow", ref=flow_id, note="no auth header on auth'd flow set")],
+                    )
+                )
                 coverage.skipped.append((flow_id, "no auth header observed"))
                 continue
 
-            findings += await self._probe_strip(inp, flow, present, coverage)
-            findings += await self._probe_swap(inp, flow, present, coverage)
+            new_findings = await self._probe_strip(inp, flow, present, coverage)
+            findings += new_findings
+            new_findings_swap = await self._probe_swap(inp, flow, present, coverage)
+            findings += new_findings_swap
+            for f in new_findings_swap:
+                if "swap-noop" in (f.tags or []):
+                    hypotheses.append(
+                        Hypothesis(
+                            claim=(
+                                f"Token swap on {flow['request']['method']} {flow['request']['url']} "
+                                "returned identical payload — endpoint may not validate session ownership"
+                            ),
+                            status="open",
+                            tests=[f"replay_with_body_mutation:{flow_id}"],
+                            evidence=[Evidence(kind="flow", ref=flow_id, note="swap-noop ambiguity")],
+                        )
+                    )
             findings += await self._probe_jwt_alg_none(inp, flow, coverage)
 
             coverage.tested.append(flow_id)
 
-        return ModuleResult(module=self.name, findings=findings, coverage=coverage)
+        return ModuleResult(
+            module=self.name, findings=findings, hypotheses=hypotheses, coverage=coverage
+        )
 
     async def _probe_strip(
         self,

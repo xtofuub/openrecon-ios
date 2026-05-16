@@ -123,6 +123,45 @@ class InstallHook(Step):
         return StepResult(summary=f"loaded {hook}")
 
 
+class AcquireBinary(Step):
+    """Pull a decrypted Mach-O off the device via the binary_dump.js hook.
+
+    Idempotent: if ``runs/<id>/artifacts/app.macho`` already exists it is
+    reused. Operators can pre-populate that path with a binary dumped via an
+    external tool (bagbak, frida-ios-dump) and this step will record the
+    fact in state without re-dumping.
+
+    Failure is non-fatal — the engagement continues without static analysis.
+    The r2 and r2frida MCP tools that consume this artifact will simply
+    return an explicit "no binary acquired" error.
+    """
+
+    name = "AcquireBinary"
+
+    async def _run(self, ctx: ExecContext) -> StepResult:
+        from api.binary import BinaryAcquisitionError, acquire_binary
+
+        runner = ctx.extras.get("frida_runner")
+        if not runner or not getattr(runner, "_session", None):
+            return StepResult(
+                success=False,
+                summary="no frida session in context — skipping binary dump",
+            )
+        try:
+            path = await acquire_binary(
+                frida_session=runner._session,  # noqa: SLF001
+                run_dir=ctx.store.run_dir,
+            )
+        except BinaryAcquisitionError as exc:
+            return StepResult(success=False, summary=f"acquire failed: {exc}")
+        ctx.state.target.binary_path = str(path)
+        return StepResult(
+            summary=f"binary at {path} ({path.stat().st_size} bytes)",
+            payload={"binary_path": str(path), "size": path.stat().st_size},
+            artifacts=[str(path.relative_to(ctx.store.run_dir))],
+        )
+
+
 class ObjectionRecon(Step):
     name = "ObjectionRecon"
 
@@ -277,9 +316,20 @@ class RunModule(Step):
         result = await cls().run(inp)
         for f in result.findings:
             ctx.store.append("findings", f)
+        # Persist any hypotheses the module emitted so the planner picks them
+        # up in the EXPLOIT phase (see Planner._open_hypothesis_step).
+        if getattr(result, "hypotheses", None):
+            from . import hypotheses as h_store
+
+            for h in result.hypotheses:
+                h_store.append(ctx.store.run_dir, h)
         return StepResult(
-            summary=f"{module_name}: {len(result.findings)} findings",
-            payload={"findings": len(result.findings), "coverage": result.coverage.model_dump()},
+            summary=f"{module_name}: {len(result.findings)} findings, {len(getattr(result, 'hypotheses', []) or [])} hypotheses",
+            payload={
+                "findings": len(result.findings),
+                "hypotheses": len(getattr(result, "hypotheses", []) or []),
+                "coverage": result.coverage.model_dump(),
+            },
         )
 
 
@@ -332,6 +382,7 @@ __all__ = [
     "EnvironmentCheck",
     "LaunchTarget",
     "InstallHook",
+    "AcquireBinary",
     "ObjectionRecon",
     "ObservePassive",
     "MapEndpoints",

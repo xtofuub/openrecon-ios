@@ -303,7 +303,16 @@ class MitmClient:
         *,
         overrides: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Replay a captured flow with optional method/header/body mutations."""
+        """Replay a captured flow with optional method/header/body mutations.
+
+        Synthetic ``frida-*`` flow_ids — created by ``FridaFlowNormalizer`` from
+        NSURLSession / NSURLConnection hooks — never passed through mitmproxy's
+        recorder. They are replayed via :meth:`replay_synthetic`, which reads
+        the recorded request out of ``mitm_flows.jsonl`` and re-issues it with
+        httpx. All other flow_ids dispatch to the vendored mitmproxy tool.
+        """
+        if flow_id.startswith("frida-"):
+            return await self.replay_synthetic(flow_id, overrides=overrides or {})
         before_ids = set(await self.list_flows(limit=500))
         arguments = await self._replay_arguments(flow_id, overrides or {})
         message = await self._call_tool("replay_flow", arguments)
@@ -313,6 +322,152 @@ class MitmClient:
             replayed["message"] = message
             return replayed
         return {"flow_id": f"replay-{flow_id[:8]}", "response": None, "message": message}
+
+    async def replay_synthetic(
+        self,
+        flow_id: str,
+        *,
+        overrides: dict[str, Any] | None = None,
+        timeout_seconds: float = 30.0,
+        verify_tls: bool = False,
+    ) -> dict[str, Any]:
+        """Replay a Frida-sourced synthetic flow using a direct httpx request.
+
+        The recorded request lives in ``run_dir/mitm_flows.jsonl``. Overrides
+        follow the same shape used by api modules: ``url``, ``method``,
+        ``headers``, ``body_patch`` (JSON patch dict merged into a JSON body),
+        and ``query`` (dict merged into the query string).
+
+        The replay result is appended back to ``mitm_flows.jsonl`` with a new
+        ``frida-replay-*`` flow_id and ``tags: ["replayed", "synthetic-replay"]``
+        so downstream consumers (finder ClientSideValidationBypassRule, etc.)
+        observe the new traffic on the next iteration.
+        """
+        import time as _time
+        from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+
+        import httpx
+        from ulid import ULID
+
+        flow = self._load_synthetic_flow(flow_id)
+        if flow is None:
+            raise MitmToolError(f"synthetic flow {flow_id!r} not found in run_dir")
+
+        request = flow.get("request") or {}
+        original_url = str(request.get("url") or "")
+        method = str(request.get("method") or "GET").upper()
+        headers = dict(request.get("headers") or {})
+        body_b64 = request.get("body_b64")
+        body_bytes: bytes | None = None
+        if body_b64:
+            try:
+                body_bytes = base64.b64decode(body_b64)
+            except Exception:
+                body_bytes = None
+
+        ov = overrides or {}
+        url = str(ov.get("url") or original_url)
+        method = str(ov.get("method") or method).upper()
+        if ov.get("headers"):
+            headers.update({str(k): str(v) for k, v in ov["headers"].items()})
+        if ov.get("query"):
+            split = urlsplit(url)
+            qs = {k: v[0] if v else "" for k, v in parse_qs(split.query, keep_blank_values=True).items()}
+            qs.update({str(k): str(v) for k, v in ov["query"].items()})
+            url = urlunsplit(split._replace(query=urlencode(qs)))
+        if ov.get("body_patch") and body_bytes is not None:
+            try:
+                body_obj = json.loads(body_bytes.decode("utf-8"))
+                if isinstance(body_obj, dict):
+                    body_obj.update(ov["body_patch"])
+                    body_bytes = json.dumps(body_obj).encode("utf-8")
+            except Exception:
+                pass
+        if ov.get("body_b64"):
+            try:
+                body_bytes = base64.b64decode(str(ov["body_b64"]))
+            except Exception:
+                pass
+
+        ts_request = _time.time()
+        async with httpx.AsyncClient(
+            verify=verify_tls,
+            timeout=timeout_seconds,
+            follow_redirects=False,
+        ) as client:
+            try:
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    content=body_bytes,
+                )
+                resp_body = response.content
+                resp_status = response.status_code
+                resp_headers = {k: v for k, v in response.headers.items()}
+                error: str | None = None
+            except httpx.HTTPError as exc:
+                resp_body = b""
+                resp_status = 0
+                resp_headers = {}
+                error = f"{type(exc).__name__}: {exc}"
+        ts_response = _time.time()
+
+        replay_flow_id = f"frida-replay-{ULID()}"
+        replay_record = MitmFlow(
+            flow_id=replay_flow_id,
+            ts_request=ts_request,
+            ts_response=ts_response,
+            request={
+                "url": url,
+                "method": method,
+                "headers": headers,
+                "body_b64": base64.b64encode(body_bytes).decode("ascii") if body_bytes else None,
+                "body_sha256": hashlib.sha256(body_bytes).hexdigest() if body_bytes else None,
+            },
+            response={
+                "status": resp_status,
+                "headers": resp_headers,
+                "body_b64": base64.b64encode(resp_body).decode("ascii") if resp_body else None,
+                "body_sha256": hashlib.sha256(resp_body).hexdigest() if resp_body else None,
+            },
+            duration_ms=max(0.0, (ts_response - ts_request) * 1000.0),
+            tags=["replayed", "synthetic-replay"],
+        )
+        self._append_synthetic_flow(replay_record)
+
+        result: dict[str, Any] = replay_record.model_dump()
+        result["message"] = "synthetic replay via httpx"
+        if error:
+            result["error"] = error
+        return result
+
+    def _load_synthetic_flow(self, flow_id: str) -> dict[str, Any] | None:
+        if self.run_dir is None:
+            return None
+        path = self.run_dir / "mitm_flows.jsonl"
+        if not path.exists():
+            return None
+        with path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except Exception:
+                    continue
+                if record.get("flow_id") == flow_id:
+                    return record
+        return None
+
+    def _append_synthetic_flow(self, flow: MitmFlow) -> None:
+        if self.run_dir is None:
+            return
+        path = self.run_dir / "mitm_flows.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(flow.model_dump_json() + "\n")
 
     async def detect_auth(self) -> AuthPattern:
         payload = await self._call_json("detect_auth_pattern")

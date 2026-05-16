@@ -206,6 +206,9 @@ class TargetMeta(BaseModel):
     device_id: str | None = None
     discovered_hosts: list[str] = []
     discovered_endpoints: list[Endpoint] = []
+    # Relative or absolute path to the decrypted Mach-O dump (set by
+    # AcquireBinary step). Consumed by r2 / r2frida tools + finder rules.
+    binary_path: str | None = None
 
 
 class StepRecord(BaseModel):
@@ -266,6 +269,7 @@ class ModuleCoverage(BaseModel):
 class ModuleResult(BaseModel):
     module: str
     findings: list[Finding] = []
+    hypotheses: list[Hypothesis] = []
     artifacts: list[Artifact] = []
     coverage: ModuleCoverage = Field(default_factory=ModuleCoverage)
     duration_ms: float | None = None

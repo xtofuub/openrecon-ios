@@ -294,12 +294,23 @@ class SignedRequestSuspicionRule:
         return hypotheses
 
 
+from .finders_secrets import (  # noqa: E402
+    CookieSecurityRule,
+    KeychainSecretLeakRule,
+    StaticBinarySecretsRule,
+    UserDefaultsLeakRule,
+)
+
 DEFAULT_RULES: tuple[FindingRule, ...] = (
     AuthHeaderInferenceRule(),
     HookedCryptoAsSignatureRule(),
     CrossTenantLeakRule(),
     EndpointWithoutAuthRule(),
     ClientSideValidationBypassRule(),
+    KeychainSecretLeakRule(),
+    CookieSecurityRule(),
+    UserDefaultsLeakRule(),
+    StaticBinarySecretsRule(),
 )
 
 DEFAULT_HYPOTHESIS_RULES: tuple[HypothesisRule, ...] = (

@@ -116,6 +116,30 @@ Seven phases. Each phase has an exit criterion — a thing the platform can do t
 
 ---
 
+## Phase 8 — NSURLSession capture + radare2 integration + autonomy ✅
+
+**Goal:** Frida-captured HTTP becomes a first-class flow source, static binary analysis is available to AI agents, and the planner / modules emit hypotheses that drive iterative exploitation.
+
+- [x] `frida_layer/hooks/url_session_body_tracer.js` — full request + response body capture at the Obj-C delegate layer; no SSL pinning bypass needed.
+- [x] `frida_layer/hooks/ns_url_connection_tracer.js` — same for NSURLConnection (legacy API).
+- [x] `frida_layer/hooks/binary_dump.js` — FairPlay-aware Mach-O dumper.
+- [x] `agent/frida_flow_normalizer.py` — Frida HTTP events → `MitmFlow`. Wired into `agent/runner.py:pump_frida`.
+- [x] `mitm/client.py:replay_synthetic` — httpx-based replay for `frida-*` flow IDs; `replay_flow` dispatches transparently.
+- [x] `r2_mcp/` — standalone FastMCP server for radare2 static analysis (15 tools).
+- [x] `r2frida_mcp/` — standalone FastMCP server for live-process r2frida (16 tools).
+- [x] `api/binary.py` + `agent.steps.AcquireBinary` — decrypted Mach-O acquisition, idempotent.
+- [x] `api/static.py` — in-process r2 wrapper for finder rules / planner.
+- [x] `agent/finders_secrets.py` — `KeychainSecretLeakRule`, `CookieSecurityRule`, `UserDefaultsLeakRule`, `StaticBinarySecretsRule`.
+- [x] `agent/planner.py:_pick_baselines` — ranks auth'd 2xx + ID-bearing flows; modules now receive non-empty `baseline_flow_ids`.
+- [x] `agent/schema.py:ModuleResult.hypotheses` + `RunModule` persists them.
+- [x] `api/idor.py`, `api/auth.py` — emit hypotheses on ambiguous results so the planner re-tests in EXPLOIT phase.
+- [x] `.claude/settings.json` — three MCP servers registered (mitm, r2, r2frida).
+- [x] Tests: `test_frida_flow_normalizer`, `test_synthetic_replay`, `test_planner_baselines`, `test_module_hypotheses`, `test_finders_secrets`, `test_r2_session`.
+
+**Exit:** Pinned apps still surface findings via the Frida HTTP path. Static analysis tools are usable from any MCP client. Planner re-tests ambiguous module results without operator help. 161 tests passing.
+
+---
+
 ## Phase 7 — Reporting and exports ✅
 
 **Goal:** findings are review-ready and embeddable in HackerOne / Bugcrowd / private reports.

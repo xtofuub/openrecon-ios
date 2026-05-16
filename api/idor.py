@@ -13,6 +13,7 @@ from typing import Any
 from agent.schema import (
     Evidence,
     Finding,
+    Hypothesis,
     ModuleCoverage,
     ModuleResult,
     ReproStep,
@@ -46,6 +47,7 @@ class IdorModule(ApiModule):
 
     async def run(self, inp: ModuleInput) -> ModuleResult:
         findings: list[Finding] = []
+        hypotheses: list[Hypothesis] = []
         coverage = ModuleCoverage(totals={"flows": 0, "positions": 0, "mutations": 0})
 
         for flow_id in inp.baseline_flow_ids:
@@ -67,6 +69,26 @@ class IdorModule(ApiModule):
                     severity = _classify(replay, diff)
                     if severity is None:
                         continue
+                    if severity == Severity.LOW:
+                        # Ambiguous: 2xx with weak signal. Open a hypothesis
+                        # for EXPLOIT-phase re-test instead of a noisy finding.
+                        hypotheses.append(
+                            Hypothesis(
+                                claim=(
+                                    f"Endpoint {flow['request']['method']} "
+                                    f"{flow['request']['url']} may leak data via "
+                                    f"{pos['kind']}={pos.get('key', pos.get('index'))} "
+                                    "but evidence is weak — re-test with adjacent IDs"
+                                ),
+                                status="open",
+                                tests=[f"replay_with_body_mutation:{flow_id}"],
+                                evidence=[
+                                    Evidence(kind="flow", ref=flow_id, note="ambiguous IDOR baseline"),
+                                    Evidence(kind="flow", ref=replay.get("flow_id", "?"), note="ambiguous IDOR replay"),
+                                ],
+                            )
+                        )
+                        continue
                     findings.append(
                         _make_finding(
                             inp,
@@ -83,6 +105,7 @@ class IdorModule(ApiModule):
         return ModuleResult(
             module=self.name,
             findings=findings,
+            hypotheses=hypotheses,
             coverage=coverage,
         )
 

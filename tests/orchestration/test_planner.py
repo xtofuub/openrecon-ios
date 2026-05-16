@@ -29,13 +29,17 @@ def test_bootstrap_emits_env_check_first(run_dir):
 
 
 def test_bootstrap_walks_through_hooks_in_order(run_dir):
+    from agent.planner import _DEFAULT_HOOKS
+
     state = _make_state()
     p = Planner(state, RunQuery(run_dir))
-    names = [p.next_step().name for _ in range(7)]
+    expected_len = 2 + len(_DEFAULT_HOOKS) + 2  # EnvCheck + LaunchTarget + N hooks + AcquireBinary + ObjectionRecon
+    names = [p.next_step().name for _ in range(expected_len)]
     assert names[0] == "EnvironmentCheck"
     assert names[1] == "LaunchTarget"
     assert "InstallHook" in names
     assert "ObjectionRecon" in names
+    assert names[-1] == "ObjectionRecon"
 
 
 def test_passive_observes_when_few_flows(event_store, mitm_flow_factory):

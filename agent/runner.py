@@ -15,6 +15,7 @@ import structlog
 
 from . import finder
 from .correlate import Correlator
+from .frida_flow_normalizer import FridaFlowNormalizer
 from .planner import Planner
 from .query import RunQuery
 from .schema import EngagementState
@@ -44,9 +45,10 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
     log.info("engagement.start", run_id=state.run_id, bundle=cfg.bundle_id)
 
     correlator = Correlator(store)
+    normalizer = FridaFlowNormalizer()
     query = RunQuery(run_dir)
 
-    extras: dict[str, object] = {"correlator": correlator}
+    extras: dict[str, object] = {"correlator": correlator, "frida_flow_normalizer": normalizer}
 
     async with contextlib.AsyncExitStack() as stack:
         # Lazy imports to keep cold-start cheap and let modules be stub-friendly.
@@ -54,7 +56,9 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
         from mitm.client import MitmClient
 
         frida_runner = FridaRunner.from_state(state)
-        mitm_client = await stack.enter_async_context(MitmClient.connect(port=cfg.mitm_port))
+        mitm_client = await stack.enter_async_context(
+            MitmClient.connect(port=cfg.mitm_port, run_dir=run_dir)
+        )
         extras["frida_runner"] = frida_runner
         extras["mitm_client"] = mitm_client
 
@@ -63,6 +67,12 @@ async def run_engagement(cfg: EngagementConfig) -> EngagementState:
             async for ev in frida_runner.stream_events():
                 store.append("frida_events", ev)
                 correlator.ingest_frida(ev)
+                # Frida-captured HTTP traffic (NSURLSession / NSURLConnection)
+                # is normalized into MitmFlow records so it feeds correlator,
+                # endpoint_map, finders, and replay alongside real mitm flows.
+                for synthetic in normalizer.ingest(ev):
+                    store.append("mitm_flows", synthetic)
+                    correlator.ingest_flow(synthetic)
 
         async def pump_mitm() -> None:
             async for flow in mitm_client.stream_flows():
