@@ -114,15 +114,20 @@ class FridaRunner:
     def _get_device(self, frida: Any) -> Any:
         if self.device_id:
             return frida.get_device(self.device_id)
-        return frida.get_usb_device(timeout=5)
+        return frida.get_usb_device(timeout=15)
 
 
-def probe_device(device_id: str | None = None) -> bool:
-    """Used by `openrecon doctor` to verify connectivity."""
+def probe_device(device_id: str | None = None, *, timeout: float = 10.0) -> bool:
+    """Used by `openrecon doctor` to verify connectivity.
+
+    The default 10 s timeout covers the case where Windows hasn't fully
+    enumerated the USB device by the time we ask. ``frida-ps -U`` from a
+    second shell works because it waits longer; we now match that.
+    """
     try:
         import frida
 
-        dev = frida.get_device(device_id) if device_id else frida.get_usb_device(timeout=3)
+        dev = frida.get_device(device_id) if device_id else frida.get_usb_device(timeout=timeout)
         _ = dev.enumerate_processes()
         return True
     except Exception as exc:

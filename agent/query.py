@@ -3,6 +3,11 @@
 The planner, finder rules, and bug-bounty modules all read run state through
 this layer. It returns plain dicts (already JSON-ready) so callers can pass
 results straight into prompts or logs.
+
+The SQLite indexes are created lazily by ``EventStore.append`` — on a fresh
+run with zero events, the tables / FTS virtual table do not exist yet. The
+query helpers below tolerate that by returning an empty result instead of
+propagating ``OperationalError`` to the planner loop.
 """
 
 from __future__ import annotations
@@ -57,11 +62,14 @@ class RunQuery:
         return out
 
     def flows_matching(self, fts_query: str) -> list[dict[str, Any]]:
-        cur = self.db.cursor()
-        rows = cur.execute(
-            "SELECT event_id FROM fts WHERE stream='mitm_flows' AND fts MATCH ?",
-            (fts_query,),
-        ).fetchall()
+        try:
+            cur = self.db.cursor()
+            rows = cur.execute(
+                "SELECT event_id FROM fts WHERE stream='mitm_flows' AND fts MATCH ?",
+                (fts_query,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
         ids = {r["event_id"] for r in rows}
         return [r for r in self._read_jsonl("mitm_flows.jsonl") if r["event_id"] in ids]
 
@@ -87,11 +95,14 @@ class RunQuery:
         ]
 
     def frida_events_by_method(self, cls: str, method: str) -> list[dict[str, Any]]:
-        cur = self.db.cursor()
-        rows = cur.execute(
-            "SELECT event_id FROM by_method WHERE cls=? AND method=?",
-            (cls, method),
-        ).fetchall()
+        try:
+            cur = self.db.cursor()
+            rows = cur.execute(
+                "SELECT event_id FROM by_method WHERE cls=? AND method=?",
+                (cls, method),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
         ids = {r["event_id"] for r in rows}
         return [r for r in self._read_jsonl("frida_events.jsonl") if r["event_id"] in ids]
 
@@ -117,7 +128,10 @@ class RunQuery:
         return self.frida_event(top["frida_event_ids"][0])
 
     def flows_by_method(self, cls: str, method: str) -> list[dict[str, Any]]:
-        events = self.frida_events_by_method(cls, method)
+        try:
+            events = self.frida_events_by_method(cls, method)
+        except sqlite3.OperationalError:
+            events = []
         event_ids = {e["event_id"] for e in events}
         flow_ids: set[str] = set()
         for record in self._read_jsonl("correlations.jsonl"):
