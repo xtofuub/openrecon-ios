@@ -107,10 +107,18 @@ class R2Session:
     # ----------------------------------------------------------------- analysis
 
     def ensure_analyzed(self) -> None:
-        """Run `aaa` once. Idempotent — subsequent calls are no-ops."""
+        """Run a basic analysis pass once. Idempotent.
+
+        We use ``aa`` (analyze functions + basic xrefs) instead of ``aaa``
+        (deep propagation, type recovery, ESIL emulation). ``aaa`` on a
+        25 MB Mach-O can block for 5–15 minutes which freezes the engagement
+        planner loop. ``aa`` gives us function detection, names, sizes,
+        xrefs — everything the static finder rule and r2-mcp tools need —
+        in a few seconds.
+        """
         if self._analyzed:
             return
-        self.cmd("aaa")
+        self.cmd("aa")
         self._analyzed = True
 
     # ---------------------------------------------------------------- commands
