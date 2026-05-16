@@ -22,6 +22,16 @@ dependencies = [
     "frida-tools>=13.0,<15",
     "objection>=1.11.0,<2",
     "mitmproxy>=12.0.0,<13",
+    # Vendored mitmproxy-mcp transitive deps (mitm/vendor/src/mitmproxy_mcp).
+    # Pinned here so `pip install -e .` brings them in; without them the
+    # stdio subprocess exits at import time with "Connection closed".
+    "google-re2>=1.1",
+    "curl-cffi>=0.14.0",
+    "jsonpath-ng>=1.8.0",
+    "beautifulsoup4>=4.14.3",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx-sse>=0.4.0",
     "mcp>=1.2,<2",
     "rich>=13.7,<15",
     "jsonschema>=4.20,<5",
