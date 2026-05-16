@@ -33,6 +33,9 @@ _STRIPE_RE = re.compile(r"(?:sk|pk)_(?:live|test)_[0-9a-zA-Z]{20,}")
 _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}")
 
 
+_R2_UNAVAILABLE = False  # latched after first failure so we don't log per-iter
+
+
 def _try_import_session() -> Any | None:
     try:
         from r2_mcp.session import R2Session
@@ -42,17 +45,52 @@ def _try_import_session() -> Any | None:
         return None
 
 
+def _augment_path_with_scoop() -> None:
+    """Add common shim dirs to PATH so r2pipe finds the binary.
+
+    r2pipe shells out to ``radare2`` / ``r2``. On Windows + scoop, the shim
+    lives at ``~/scoop/shims/r2.EXE`` but the Python subprocess may not have
+    that dir on PATH (scoop adds it via user env vars which some shells
+    don't propagate). Inject candidate paths idempotently.
+    """
+    import os
+
+    candidates = [
+        Path.home() / "scoop" / "shims",
+        Path.home() / "AppData" / "Local" / "Programs" / "radare2" / "bin",
+        Path("C:/Program Files/radare2/bin"),
+        Path("/usr/local/bin"),
+        Path("/opt/homebrew/bin"),
+    ]
+    extra = os.pathsep.join(str(p) for p in candidates if p.exists())
+    if not extra:
+        return
+    cur = os.environ.get("PATH", "")
+    if extra in cur:
+        return
+    os.environ["PATH"] = cur + os.pathsep + extra
+
+
 def open_binary(path: Path | str) -> Any | None:
     """Open a binary and return an R2Session, or None if r2pipe isn't installed."""
+    global _R2_UNAVAILABLE
+    if _R2_UNAVAILABLE:
+        return None
     R2Session = _try_import_session()
     if R2Session is None:
+        _R2_UNAVAILABLE = True
         return None
+    _augment_path_with_scoop()
     try:
         sess = R2Session.get_or_open(path)
         sess.ensure_analyzed()
         return sess
     except Exception as exc:
         log.warning("static.open_failed path=%s err=%s", path, exc)
+        # Latch only on PATH-style failures so a per-binary error doesn't
+        # disable static analysis for the entire run.
+        if "not in PATH" in str(exc) or "Cannot find radare2" in str(exc):
+            _R2_UNAVAILABLE = True
         return None
 
 
