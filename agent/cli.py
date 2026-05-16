@@ -109,26 +109,56 @@ def _frida_version_checks(device_id: str | None) -> list[tuple[str, bool, str]]:
         import frida as _frida  # type: ignore
 
         device = _frida.get_device(device_id) if device_id else _frida.get_usb_device(timeout=3)
-        remote = device.query_system_parameters().get("frida-version") if hasattr(device, "query_system_parameters") else None
-        if not remote:
-            # Older frida versions: fall back to spawning frida-helper probe.
-            try:
-                remote = device.get_frontmost_application().__class__.__module__
-            except Exception:
-                remote = None
-        remote_str = str(remote or "unknown")
+        params = device.query_system_parameters() if hasattr(device, "query_system_parameters") else {}
+        if not isinstance(params, dict):
+            params = {}
+        remote_str = _extract_frida_version(params)
     except Exception as exc:
         rows.append(("frida-server (device)", False, f"probe failed: {exc}"))
         return rows
 
-    rows.append(("frida-server (device)", remote_str != "unknown", f"version={remote_str}"))
+    rows.append(
+        (
+            "frida-server (device)",
+            remote_str is not None,
+            f"version={remote_str}" if remote_str else "version unknown (no frida-version key in system params)",
+        )
+    )
 
-    if remote_str == "unknown" or local == "?":
+    if remote_str is None or local == "?":
         return rows
 
     aligned, detail = _versions_aligned(local, remote_str)
     rows.append(("frida client<->server", aligned, detail))
     return rows
+
+
+def _extract_frida_version(params: dict) -> str | None:
+    """Pull the frida-server version out of `Device.query_system_parameters()`.
+
+    The key has moved around between frida releases (``frida-version`` on
+    newer servers, sometimes nested under ``os`` on older builds). Accept any
+    string that looks like a semver (``MAJOR.MINOR.PATCH``); reject everything
+    else so we don't get garbage like ``"builtins"`` polluting the comparison.
+    """
+    import re
+
+    semver = re.compile(r"^\d+\.\d+(\.\d+)?")
+    candidates: list[str] = []
+    for key in ("frida-version", "version", "frida_version"):
+        v = params.get(key)
+        if isinstance(v, str):
+            candidates.append(v)
+    nested = params.get("os")
+    if isinstance(nested, dict):
+        for key in ("frida-version", "version"):
+            v = nested.get(key)
+            if isinstance(v, str):
+                candidates.append(v)
+    for c in candidates:
+        if semver.match(c):
+            return c
+    return None
 
 
 def _versions_aligned(local: str, remote: str) -> tuple[bool, str]:
