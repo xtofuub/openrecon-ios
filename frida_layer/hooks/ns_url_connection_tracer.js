@@ -371,7 +371,7 @@
 
   // ── Delegate callbacks ─────────────────────────────────────────────────────
 
-  ObjC.enumerateLoadedClasses({ ownedBy: null }, {
+  ObjC.enumerateLoadedClasses({}, {
     onMatch: function (name) {
       try {
         var cls = ObjC.classes[name];

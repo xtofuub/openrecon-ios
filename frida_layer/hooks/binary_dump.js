@@ -88,12 +88,30 @@
     // we only need the encrypted segment replaced.
     var file = new File(main.path, 'rb');
     if (!file) { fail('could not open ' + main.path); return; }
-    file.seek(0);
-    // Read whole file. iOS app binaries are typically tens of MB; this fits
-    // in process memory comfortably.
-    var fileData = file.readBytes(0);   // null/0 -> read to EOF in frida 16+
+    // Frida's File API in 16.x doesn't expose stat(), so we stream the file
+    // through fixed-size chunks until readBytes returns empty. Each chunk is
+    // 64 KB which keeps peak JS heap pressure low while remaining fast on
+    // typical iOS binaries (10–200 MB).
+    var fileChunks = [];
+    var totalRead = 0;
+    var READ_CHUNK = 64 * 1024;
+    while (true) {
+      var chunk = file.readBytes(READ_CHUNK);
+      if (!chunk || chunk.byteLength === 0) break;
+      fileChunks.push(new Uint8Array(chunk));
+      totalRead += chunk.byteLength;
+      if (totalRead > 512 * 1024 * 1024) { fail('binary larger than 512 MB cap'); file.close(); return; }
+    }
     file.close();
-    if (!fileData) { fail('readBytes returned empty'); return; }
+    if (totalRead === 0) { fail('readBytes returned empty'); return; }
+    // Concat into one buffer.
+    var fileData = new Uint8Array(totalRead);
+    var fdOff = 0;
+    for (var fi = 0; fi < fileChunks.length; fi++) {
+      fileData.set(fileChunks[fi], fdOff);
+      fdOff += fileChunks[fi].byteLength;
+    }
+    fileData = fileData.buffer;
 
     var buf = new Uint8Array(fileData);
 

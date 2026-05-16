@@ -351,7 +351,7 @@
   // ── NSURLSessionDataDelegate: didReceiveData — accumulate response chunks ──
 
   try {
-    ObjC.enumerateLoadedClasses({ ownedBy: null }, {
+    ObjC.enumerateLoadedClasses({}, {
       onMatch: function (name) {
         try {
           var cls = ObjC.classes[name];
@@ -406,7 +406,7 @@
   // ── NSURLSessionTaskDelegate: didCompleteWithError — flush + emit complete ─
 
   try {
-    ObjC.enumerateLoadedClasses({ ownedBy: null }, {
+    ObjC.enumerateLoadedClasses({}, {
       onMatch: function (name) {
         try {
           var cls = ObjC.classes[name];
