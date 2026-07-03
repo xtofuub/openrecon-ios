@@ -46,7 +46,7 @@ r2 = [
     "r2pipe>=1.9,<2",
 ]
 dev = [
-    "pytest>=8.0,<9",
+    "pytest>=9.1.1,<10",
     "pytest-asyncio>=0.23,<1",
     "pytest-cov>=5.0,<6",
     "ruff>=0.4,<1",
