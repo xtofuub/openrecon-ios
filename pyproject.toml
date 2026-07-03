@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "xtofuub" }]
 
 dependencies = [
-    "pydantic>=2.6,<3",
+    "pydantic>=2.13.4,<3",
     "structlog>=24.1,<26",
     "httpx>=0.27,<1",
     "anyio>=4.3,<5",
